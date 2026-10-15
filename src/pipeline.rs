@@ -102,7 +102,13 @@ pub async fn sideload(
         r(sess.dev.ensure_device_registered(&team, &dev_name, &udid, dev_type.clone()).await)?;
     }
 
-    rep.stage(Stage::Register, 0.12, "Fetching signing certificate…");
+    // Reading the signing key can raise a macOS Keychain prompt that blocks
+    // until it is answered, so say so instead of looking frozen.
+    rep.stage(
+        Stage::Register,
+        0.12,
+        "Getting your signing certificate. If macOS asks for Keychain access, choose Always Allow.",
+    );
     let storage = KeyringStorage::new(KEYCHAIN_SERVICE.to_string());
     let cert = signing_identity(sess, &storage).await?;
 

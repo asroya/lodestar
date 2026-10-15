@@ -357,11 +357,10 @@ async fn run(
                 }
             }
             Cmd::Install(req) => {
-                let title = std::path::Path::new(&req.ipa)
-                    .file_name()
-                    .map(|n| n.to_string_lossy().to_string())
-                    .unwrap_or_default();
-                start_job(&engine, format!("Installing {title}"));
+                // Name the app, not the stored file: library copies are named
+                // after the bundle ID, team ID and device UDID.
+                let app = crate::ipa::inspect(&req.ipa).map(|i| i.name).unwrap_or_else(|_| "app".into());
+                start_job(&engine, job_title(req.library_id.is_some(), &app));
                 let res = match session.as_mut() {
                     None => Err(anyhow!("Sign in with your Apple ID first")),
                     Some(sess) => match find_device(&engine, &req.device_key) {
@@ -415,6 +414,11 @@ async fn run(
 
 fn find_device(engine: &Engine, key: &str) -> Option<Device> {
     engine.shared.lock().unwrap().devices.iter().find(|d| d.key == key).cloned()
+}
+
+/// "Installing Stremio" or, when re-signing something already installed, "Refreshing Stremio".
+fn job_title(refresh: bool, app: &str) -> String {
+    format!("{} {app}", if refresh { "Refreshing" } else { "Installing" })
 }
 
 static NEXT_JOB: AtomicU64 = AtomicU64::new(1);
@@ -543,4 +547,15 @@ async fn sign_in_inner(
         anyhow!("This Apple ID has no developer team. Sign in once at developer.apple.com to accept the agreement.")
     })?;
     Ok((Session { dev, email: email.to_string(), team }, name))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::job_title;
+
+    #[test]
+    fn job_titles_name_the_app_and_the_action() {
+        assert_eq!(job_title(false, "Stremio"), "Installing Stremio");
+        assert_eq!(job_title(true, "Stremio"), "Refreshing Stremio");
+    }
 }

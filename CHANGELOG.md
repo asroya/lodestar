@@ -24,7 +24,7 @@ First public release. Full notes: [docs/releases/v1.0.0.md](docs/releases/v1.0.0
   respects *Reduce Motion* (`LODESTAR_MOTION_SLOWMO` slows it for design review).
 - Custom anisette server via `LODESTAR_ANISETTE_URL` or `anisette_url` in settings.
 - `packaging/bundle.sh` (with `--zip`) to build, sign and package `Lodestar.app`.
-- 29 unit tests, CI (format, clippy, tests), architecture and user guides.
+- 30 unit tests, CI (format, clippy, tests), architecture and user guides.
 
 ### Fixed (during pre-release testing)
 - Apple TV installs failed with a 404 because tvOS requests used a `/tvos/` path that
@@ -38,6 +38,10 @@ First public release. Full notes: [docs/releases/v1.0.0.md](docs/releases/v1.0.0
 - The unpacked app was left in the temp folder when an install failed partway.
 - The app crashed in the background on launch when "Remember me" was on, because no
   TLS provider had been installed before the first network request.
+- Refresh showed the stored file name (which contains your team ID and device UDID)
+  instead of the app's name; jobs are now titled "Installing …" or "Refreshing …".
+- The install panel looked frozen while macOS waited for Keychain approval; it now
+  says what to do.
 - The Devices page had an "Add by IP address" control that did nothing; it was
   removed in favour of network troubleshooting guidance.
 

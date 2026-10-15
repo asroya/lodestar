@@ -126,6 +126,11 @@ apps it signed from opening until you refresh them.
 **"Not enough available App IDs."** You've used this week's 10. Tick **Remove app
 extensions**, or wait up to 7 days.
 
+**Stuck at "Getting your signing certificate".** macOS is waiting for you to allow
+Keychain access, and the prompt can sit behind other windows. Find it, enter your
+Mac password and choose **Always Allow**. This happens once per build of Lodestar, so
+rebuilding from source brings it back (signing with the same identity avoids that).
+
 **Sign-in fails or loops.** Check your password at appleid.apple.com. Lodestar only
 saves a password after Apple accepts it, so a typo is never retried in the background.
 
