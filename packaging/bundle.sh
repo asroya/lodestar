@@ -9,6 +9,24 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 source ~/.cargo/env 2>/dev/null || true
+# Rust embeds absolute source paths (panic locations, dependency paths) in the binary.
+# Remap this machine's home folder and the project folder so a distributed build doesn't
+# reveal the builder's username or disk layout.
+#  - Both the logical path ($PWD) and the real one (${PWD:A}, symlinks resolved) are
+#    mapped: rustc embeds the real one, and e.g. /tmp is a symlink to /private/tmp.
+#  - CARGO_ENCODED_RUSTFLAGS (unit-separator delimited) is used instead of RUSTFLAGS,
+#    which is split on spaces and would break on a path like "/Users/Jane Doe".
+#  - The last matching mapping wins, so the project folder comes after the home folder.
+typeset -U home_roots cargo_roots proj_roots
+home_roots=("$HOME" "${HOME:A}")
+cargo_roots=()
+[[ -n "${CARGO_HOME:-}" ]] && cargo_roots=("$CARGO_HOME" "${CARGO_HOME:A}")
+proj_roots=("$PWD" "${PWD:A}")
+flags=(${=RUSTFLAGS:-})
+for r in $home_roots $cargo_roots; do flags+=("--remap-path-prefix=$r=~"); done
+for r in $proj_roots; do flags+=("--remap-path-prefix=$r=."); done
+export CARGO_ENCODED_RUSTFLAGS="${(pj:\x1f:)flags}"
+unset RUSTFLAGS
 cargo build --release
 APP="$PWD/dist/Lodestar.app"
 rm -rf "$APP"; mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
