@@ -38,6 +38,8 @@ First public release. Full notes: [docs/releases/v1.0.0.md](docs/releases/v1.0.0
 - The unpacked app was left in the temp folder when an install failed partway.
 - The app crashed in the background on launch when "Remember me" was on, because no
   TLS provider had been installed before the first network request.
+- Release binaries embedded absolute paths from the build machine (home folder, username,
+  disk name). Builds now remap them, and `packaging/check.sh` fails if any remain.
 - **Refresh all** reinstalled apps but never recorded the new expiry, so countdowns stayed
   stale and the library wasn't saved (found by Cursor Bugbot review). It now uses the same
   path as a single install.

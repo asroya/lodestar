@@ -36,6 +36,13 @@ if unzip -l dist/Lodestar-*.zip | grep -q '\._'; then
   exit 1
 fi
 
+step "Binary reveals no build-machine paths"
+if strings -a dist/Lodestar.app/Contents/MacOS/Lodestar | grep -qF -e "$HOME" -e "$PWD"; then
+  echo "the binary still contains this machine's paths:" >&2
+  strings -a dist/Lodestar.app/Contents/MacOS/Lodestar | grep -F -e "$HOME" -e "$PWD" | head -3 >&2
+  exit 1
+fi
+
 step "Binary launches and stays up (6 s, empty home folder)"
 SMOKE_HOME="$(mktemp -d)"
 HOME="$SMOKE_HOME" dist/Lodestar.app/Contents/MacOS/Lodestar >"$SMOKE_HOME/out.log" 2>&1 &

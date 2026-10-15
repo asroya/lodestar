@@ -9,6 +9,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 source ~/.cargo/env 2>/dev/null || true
+# Rust embeds absolute source paths (panic locations, dependency paths) in the binary.
+# Remap this machine's home folder and the project folder so a distributed build
+# doesn't reveal the builder's username or disk layout. The project folder is listed
+# last because the last matching mapping wins.
+export RUSTFLAGS="${RUSTFLAGS:-} --remap-path-prefix=$HOME=~ --remap-path-prefix=$PWD=."
 cargo build --release
 APP="$PWD/dist/Lodestar.app"
 rm -rf "$APP"; mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
