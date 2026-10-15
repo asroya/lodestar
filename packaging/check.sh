@@ -37,11 +37,16 @@ if unzip -l dist/Lodestar-*.zip | grep -q '\._'; then
 fi
 
 step "Binary reveals no build-machine paths"
-if strings -a dist/Lodestar.app/Contents/MacOS/Lodestar | grep -qF -e "$HOME" -e "$PWD"; then
-  echo "the binary still contains this machine's paths:" >&2
-  strings -a dist/Lodestar.app/Contents/MacOS/Lodestar | grep -F -e "$HOME" -e "$PWD" | head -3 >&2
-  exit 1
-fi
+# Check every form of every path the build could have embedded (logical and real).
+leaked=0
+for root in "$HOME" "${HOME:A}" "$PWD" "${PWD:A}" "${CARGO_HOME:-}" "${CARGO_HOME:+${CARGO_HOME:A}}"; do
+  [[ ${#root} -lt 4 ]] && continue          # skip empty or trivially short values like "/"
+  if strings -a dist/Lodestar.app/Contents/MacOS/Lodestar | grep -qF -- "$root"; then
+    echo "the binary still contains: $root" >&2
+    leaked=1
+  fi
+done
+[[ $leaked -eq 0 ]] || exit 1
 
 step "Binary launches and stays up (6 s, empty home folder)"
 SMOKE_HOME="$(mktemp -d)"
