@@ -169,6 +169,10 @@ struct NetEntry {
     ip: Option<IpAddr>,
     tunnel_port: Option<u16>,
     pairing_port: Option<u16>,
+    /// Full Bonjour instance names (`<instance>._remotepairing._tcp.local.`) that
+    /// produced the ports above, so a removal clears exactly the right one.
+    tunnel_instance: Option<String>,
+    pairing_instance: Option<String>,
 }
 
 /// Background Bonjour browser. Cheap to clone.
@@ -244,37 +248,58 @@ fn apply_event(map: &Arc<Mutex<HashMap<String, NetEntry>>>, ev: mdns_sd::Service
         ServiceResolved(svc) => {
             let host = svc.get_hostname().trim_end_matches('.').to_string();
             let ip = svc.get_addresses_v4().into_iter().next().map(IpAddr::V4);
-            let mut m = map.lock().unwrap();
-            let e = m.entry(host).or_default();
-            if ip.is_some() {
-                e.ip = ip;
-            }
-            if svc.ty_domain == SVC_TUNNEL {
-                e.tunnel_port = Some(svc.get_port());
-            } else {
-                e.pairing_port = Some(svc.get_port());
-            }
+            note_resolved(&mut map.lock().unwrap(), host, ip, &svc.ty_domain, svc.get_port(), svc.get_fullname());
             info!("Bonjour: {} {} port {}", svc.get_hostname(), svc.ty_domain, svc.get_port());
             true
         }
         ServiceRemoved(ty, fullname) => {
-            // We key by host but removal gives the instance name; clear that
-            // service type from whichever host advertised this instance.
-            let mut m = map.lock().unwrap();
-            let instance = fullname.split("._").next().unwrap_or("").to_lowercase();
-            for (host, e) in m.iter_mut() {
-                if host.to_lowercase().starts_with(&instance) || instance.is_empty() {
-                    if ty == SVC_TUNNEL {
-                        e.tunnel_port = None;
-                    } else {
-                        e.pairing_port = None;
-                    }
-                }
-            }
+            note_removed(&mut map.lock().unwrap(), &ty, &fullname);
             true
         }
         _ => false,
     }
+}
+
+/// Records a resolved service for `host`, remembering which instance announced it.
+fn note_resolved(
+    map: &mut HashMap<String, NetEntry>,
+    host: String,
+    ip: Option<IpAddr>,
+    ty: &str,
+    port: u16,
+    fullname: &str,
+) {
+    let e = map.entry(host).or_default();
+    if ip.is_some() {
+        e.ip = ip;
+    }
+    if ty == SVC_TUNNEL {
+        e.tunnel_port = Some(port);
+        e.tunnel_instance = Some(fullname.to_string());
+    } else {
+        e.pairing_port = Some(port);
+        e.pairing_instance = Some(fullname.to_string());
+    }
+}
+
+/// Handles a service going away: clears only the entry whose instance name matches
+/// exactly (DNS names are case-insensitive). Returns whether anything changed.
+fn note_removed(map: &mut HashMap<String, NetEntry>, ty: &str, fullname: &str) -> bool {
+    let mut changed = false;
+    for e in map.values_mut() {
+        if ty == SVC_TUNNEL {
+            if e.tunnel_instance.as_deref().is_some_and(|i| i.eq_ignore_ascii_case(fullname)) {
+                e.tunnel_port = None;
+                e.tunnel_instance = None;
+                changed = true;
+            }
+        } else if e.pairing_instance.as_deref().is_some_and(|i| i.eq_ignore_ascii_case(fullname)) {
+            e.pairing_port = None;
+            e.pairing_instance = None;
+            changed = true;
+        }
+    }
+    changed
 }
 
 fn friendly_host(host: &str) -> String {
@@ -395,5 +420,46 @@ mod tests {
         assert!(mk(net(false)).needs_pairing());
         assert!(!mk(net(true)).needs_pairing());
         assert!(!mk(DeviceKind::Usbmux { device_id: 1, udid: "u".into(), wifi: false }).needs_pairing());
+    }
+
+    fn tv(map: &mut HashMap<String, NetEntry>, host: &str, instance: &str, ty: &str, port: u16) {
+        note_resolved(map, host.into(), Some("10.0.0.2".parse().unwrap()), ty, port, &format!("{instance}.{ty}"));
+    }
+
+    #[test]
+    fn removing_one_tv_leaves_another_with_a_similar_name_alone() {
+        let mut m = HashMap::new();
+        tv(&mut m, "tv.local", "AA:11", SVC_TUNNEL, 1000);
+        tv(&mut m, "tv-2.local", "AA:22", SVC_TUNNEL, 2000);
+        assert!(note_removed(&mut m, SVC_TUNNEL, &format!("AA:11.{SVC_TUNNEL}")));
+        assert_eq!(m["tv.local"].tunnel_port, None);
+        assert_eq!(m["tv-2.local"].tunnel_port, Some(2000), "a different TV must be untouched");
+    }
+
+    #[test]
+    fn removal_works_even_when_the_instance_name_is_not_the_host_name() {
+        let mut m = HashMap::new();
+        tv(&mut m, "livingroom.local", "3C:4D:5E:6F", SVC_TUNNEL, 49152);
+        assert!(note_removed(&mut m, SVC_TUNNEL, &format!("3c:4d:5e:6f.{SVC_TUNNEL}")), "case-insensitive");
+        assert_eq!(m["livingroom.local"].tunnel_port, None);
+    }
+
+    #[test]
+    fn removal_clears_only_the_service_that_went_away() {
+        let mut m = HashMap::new();
+        tv(&mut m, "tv.local", "AA:11", SVC_TUNNEL, 1000);
+        tv(&mut m, "tv.local", "AA:11", SVC_MANUAL, 2000);
+        note_removed(&mut m, SVC_MANUAL, &format!("AA:11.{SVC_MANUAL}"));
+        assert_eq!(m["tv.local"].pairing_port, None);
+        assert_eq!(m["tv.local"].tunnel_port, Some(1000));
+    }
+
+    #[test]
+    fn removing_something_never_seen_changes_nothing() {
+        let mut m = HashMap::new();
+        tv(&mut m, "tv.local", "AA:11", SVC_TUNNEL, 1000);
+        assert!(!note_removed(&mut m, SVC_TUNNEL, &format!("ZZ:99.{SVC_TUNNEL}")));
+        assert!(!note_removed(&mut m, SVC_TUNNEL, ""), "an empty name must not clear everything");
+        assert_eq!(m["tv.local"].tunnel_port, Some(1000));
     }
 }

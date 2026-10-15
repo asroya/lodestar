@@ -917,7 +917,14 @@ impl LodestarApp {
                     });
                     ui.allocate_ui_with_layout(vec2(c[3], 40.0), Layout::right_to_left(Align::Min), |ui| {
                         ui.set_min_width(c[3]);
-                        if link(ui, p, "Remove", Some(p.ink3))
+                        // Removing deletes the stored IPA a running refresh may be reading,
+                        // and the finished job would write the entry back, so wait for it.
+                        if busy {
+                            ui.label(
+                                RichText::new("Remove").family(medium()).size(13.0).color(p.ink3.gamma_multiply(0.6)),
+                            )
+                            .on_hover_text("Wait for the current job to finish.");
+                        } else if link(ui, p, "Remove", Some(p.ink3))
                             .on_hover_text("Forget it here. The app stays on the device.")
                             .clicked()
                         {
@@ -946,7 +953,7 @@ impl LodestarApp {
                 rule(ui, p);
             });
         }
-        if let Some(id) = remove {
+        if let Some(id) = remove.filter(|_| !busy) {
             let mut s = self.engine.shared.lock().unwrap();
             if let Some(e) = s.library.iter().find(|e| e.id == id) {
                 let _ = std::fs::remove_file(&e.ipa_path);

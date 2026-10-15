@@ -368,7 +368,7 @@ async fn run(
                         Some(dev) => pipeline::sideload(sess, &dev, &req, &reporter, &prompter).await,
                     },
                 };
-                finish_job(&engine, res, req.library_id.is_none());
+                finish_job(&engine, res);
             }
             Cmd::RefreshAll => {
                 let entries = engine.shared.lock().unwrap().library.clone();
@@ -391,8 +391,15 @@ async fn run(
                         Some(dev) => pipeline::sideload(sess, &dev, &req, &reporter, &prompter).await,
                     };
                     match res {
-                        Ok(_) => ok += 1,
-                        Err(err) => failed.push(format!("{}: {err}", e.name)),
+                        Ok(entry) => {
+                            // Record it, or the countdown never resets and the library isn't saved.
+                            record_entry(&engine, entry);
+                            ok += 1;
+                        }
+                        Err(err) => {
+                            error!("{}: {err:#}", e.name);
+                            failed.push(format!("{}: {err}", e.name));
+                        }
                     }
                 }
                 let summary = if failed.is_empty() {
@@ -435,23 +442,33 @@ fn start_job(engine: &Engine, title: String) {
     (engine.repaint)();
 }
 
-fn finish_job(engine: &Engine, res: Result<LibraryEntry>, _new: bool) {
+/// Puts a finished install into the library and saves it. Returns the message to show.
+fn record_entry(engine: &Engine, entry: LibraryEntry) -> String {
+    let msg = format!("{} is installed on {}", entry.name, entry.device_name);
     let mut s = engine.shared.lock().unwrap();
+    merge_entry(&mut s.library, entry);
+    store::save_library(&s.library);
+    msg
+}
+
+/// A reinstall replaces the entry it refreshes (same id, or the same bundle on the same
+/// device) instead of duplicating it, so the new expiry date takes effect.
+fn merge_entry(library: &mut Vec<LibraryEntry>, entry: LibraryEntry) {
+    library.retain(|e| {
+        e.id != entry.id && !(e.signed_bundle_id == entry.signed_bundle_id && e.device_key == entry.device_key)
+    });
+    library.push(entry);
+}
+
+fn finish_job(engine: &Engine, res: Result<LibraryEntry>) {
     let result = match res {
-        Ok(entry) => {
-            let msg = format!("{} is installed on {}", entry.name, entry.device_name);
-            s.library.retain(|e| {
-                e.id != entry.id && !(e.signed_bundle_id == entry.signed_bundle_id && e.device_key == entry.device_key)
-            });
-            s.library.push(entry);
-            store::save_library(&s.library);
-            Ok(msg)
-        }
+        Ok(entry) => Ok(record_entry(engine, entry)),
         Err(e) => {
             error!("{e:#}");
             Err(format!("{e:#}"))
         }
     };
+    let mut s = engine.shared.lock().unwrap();
     if let Some(job) = s.job.as_mut() {
         if result.is_ok() {
             job.stage = Stage::Done;
@@ -551,7 +568,50 @@ async fn sign_in_inner(
 
 #[cfg(test)]
 mod tests {
-    use super::job_title;
+    use super::{job_title, merge_entry};
+    use crate::store::{InstallOptions, LibraryEntry, Platform};
+    use std::path::PathBuf;
+
+    fn entry(id: &str, bundle: &str, device: &str, expires_at: i64) -> LibraryEntry {
+        LibraryEntry {
+            id: id.into(),
+            name: "App".into(),
+            original_bundle_id: "com.x".into(),
+            signed_bundle_id: bundle.into(),
+            version: "1".into(),
+            device_key: device.into(),
+            device_name: "Device".into(),
+            platform: Platform::Ios,
+            installed_at: 0,
+            expires_at,
+            ipa_path: PathBuf::new(),
+            options: InstallOptions::default(),
+        }
+    }
+
+    #[test]
+    fn a_refresh_replaces_its_entry_and_updates_the_expiry() {
+        let mut lib = vec![entry("a", "com.x.T", "tv", 100), entry("b", "com.y.T", "tv", 200)];
+        merge_entry(&mut lib, entry("a", "com.x.T", "tv", 900));
+        assert_eq!(lib.len(), 2, "no duplicate");
+        assert_eq!(lib.iter().find(|e| e.id == "a").unwrap().expires_at, 900, "new expiry applied");
+        assert_eq!(lib.iter().find(|e| e.id == "b").unwrap().expires_at, 200, "others untouched");
+    }
+
+    #[test]
+    fn reinstalling_the_same_bundle_on_the_same_device_replaces_it() {
+        let mut lib = vec![entry("old", "com.x.T", "tv", 100)];
+        merge_entry(&mut lib, entry("new", "com.x.T", "tv", 500));
+        assert_eq!(lib.len(), 1);
+        assert_eq!(lib[0].id, "new");
+    }
+
+    #[test]
+    fn the_same_bundle_on_a_different_device_is_a_separate_entry() {
+        let mut lib = vec![entry("a", "com.x.T", "tv", 100)];
+        merge_entry(&mut lib, entry("b", "com.x.T", "phone", 100));
+        assert_eq!(lib.len(), 2);
+    }
 
     #[test]
     fn job_titles_name_the_app_and_the_action() {

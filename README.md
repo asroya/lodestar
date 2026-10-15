@@ -125,7 +125,7 @@ for how to report a vulnerability.
 ## Development
 
 ```bash
-cargo test                                   # 30 tests, no device or Apple ID needed
+cargo test                                   # 37 tests, no device or Apple ID needed
 cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 ./packaging/check.sh                         # all of the above + bundle, signature and launch check

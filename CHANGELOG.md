@@ -24,7 +24,7 @@ First public release. Full notes: [docs/releases/v1.0.0.md](docs/releases/v1.0.0
   respects *Reduce Motion* (`LODESTAR_MOTION_SLOWMO` slows it for design review).
 - Custom anisette server via `LODESTAR_ANISETTE_URL` or `anisette_url` in settings.
 - `packaging/bundle.sh` (with `--zip`) to build, sign and package `Lodestar.app`.
-- 30 unit tests, CI (format, clippy, tests), architecture and user guides.
+- 37 unit tests, CI (format, clippy, tests), architecture and user guides.
 
 ### Fixed (during pre-release testing)
 - Apple TV installs failed with a 404 because tvOS requests used a `/tvos/` path that
@@ -38,6 +38,13 @@ First public release. Full notes: [docs/releases/v1.0.0.md](docs/releases/v1.0.0
 - The unpacked app was left in the temp folder when an install failed partway.
 - The app crashed in the background on launch when "Remember me" was on, because no
   TLS provider had been installed before the first network request.
+- **Refresh all** reinstalled apps but never recorded the new expiry, so countdowns stayed
+  stale and the library wasn't saved (found by Cursor Bugbot review). It now uses the same
+  path as a single install.
+- A Bonjour service going away could clear a different Apple TV's ports (matching was by name
+  prefix); removals now match the exact service instance. (Bugbot)
+- **Remove** in My Apps stayed clickable during a running job, which could delete the IPA a
+  refresh was reading; it is disabled while a job runs. (Bugbot)
 - Refresh showed the stored file name (which contains your team ID and device UDID)
   instead of the app's name; jobs are now titled "Installing …" or "Refreshing …".
 - The install panel looked frozen while macOS waited for Keychain approval; it now
