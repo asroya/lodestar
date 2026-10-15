@@ -138,6 +138,19 @@ impl eframe::App for LodestarApp {
         if let Phase::Launch(kind) = self.phase {
             self.phase = Phase::Boot(Boot::new(kind, now));
         }
+        // Space, Return and Esc skip the boot. Take them out of this frame's
+        // input before anything below draws, so they skip and do nothing else
+        // (Return would press Get started; Esc would cancel a 2FA prompt).
+        if let Phase::Boot(b) = &mut self.phase {
+            let skip = ctx.input_mut(|i| {
+                [egui::Key::Space, egui::Key::Enter, egui::Key::Escape]
+                    .into_iter()
+                    .fold(false, |any, k| i.consume_key(egui::Modifiers::NONE, k) | any)
+            });
+            if skip {
+                b.skip();
+            }
+        }
         // A finished boot hands over to what it was revealing.
         if let Phase::Boot(b) = &self.phase
             && b.finished(now)
@@ -184,15 +197,10 @@ impl eframe::App for LodestarApp {
 }
 
 /// Paints the boot over everything, swallowing clicks while it covers the
-/// window. A click, Space, Return or Esc skips to the end.
+/// window. A click skips to the end (keys are handled before drawing).
 fn boot_overlay(ctx: &egui::Context, b: &mut Boot, p: &Pal, now: f64) {
     ctx.request_repaint();
-    let skip_key =
-        ctx.input(|i| [egui::Key::Space, egui::Key::Enter, egui::Key::Escape].iter().any(|k| i.key_pressed(*k)));
     if !b.covering(now) {
-        if skip_key {
-            b.skip();
-        }
         return;
     }
     let screen = ctx.content_rect();
@@ -206,7 +214,7 @@ fn boot_overlay(ctx: &egui::Context, b: &mut Boot, p: &Pal, now: f64) {
             resp.clicked()
         })
         .inner;
-    if clicked || skip_key {
+    if clicked {
         b.skip();
     }
 }

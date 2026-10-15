@@ -113,17 +113,31 @@ fn write_json<T: Serialize>(name: &str, value: &T) {
 }
 
 pub fn load_settings() -> Settings {
+    let raw = std::fs::read(data_dir().join("settings.json")).ok();
     let has_library = data_dir().join("library.json").exists();
-    migrate(with_defaults(read_json("settings.json")), has_library)
+    let (settings, migrated) = migrate(raw.as_deref(), has_library);
+    if migrated {
+        // Record the decision, so it is made once and never revisited.
+        save_settings(&settings);
+    }
+    settings
 }
 
-/// People who used Lodestar before first-run setup existed have already done
-/// it in effect: never show them setup or the first-launch animation.
-fn migrate(mut s: Settings, has_library: bool) -> Settings {
-    if !s.onboarded && (!s.apple_id.is_empty() || has_library) {
+/// Parses `settings.json` (if any). People who used Lodestar before first-run
+/// setup existed have in effect done it already, so a settings file from that
+/// time (one with no `onboarded` key) with an Apple ID, or any library, counts as
+/// onboarded. A file that has the key is never second-guessed: someone who signs
+/// in during setup and quits before Continue still sees setup next time.
+/// Returns the settings and whether the migration changed them.
+fn migrate(raw: Option<&[u8]>, has_library: bool) -> (Settings, bool) {
+    let value: Option<serde_json::Value> = raw.and_then(|b| serde_json::from_slice(b).ok());
+    let has_key = value.as_ref().and_then(|v| v.get("onboarded")).is_some();
+    let mut s = with_defaults(value.and_then(|v| serde_json::from_value(v).ok()).unwrap_or_default());
+    let legacy = !has_key && (!s.apple_id.is_empty() || has_library);
+    if legacy {
         s.onboarded = true;
     }
-    s
+    (s, legacy)
 }
 
 /// Fills in values a missing or older settings file doesn't carry.
@@ -281,12 +295,21 @@ mod tests {
 
     #[test]
     fn existing_users_count_as_onboarded() {
-        let fresh = migrate(Settings::default(), false);
-        assert!(!fresh.onboarded, "a brand-new install sees setup");
-        let signed_in = migrate(Settings { apple_id: "a@b.c".into(), ..Default::default() }, false);
-        assert!(signed_in.onboarded);
-        assert!(migrate(Settings::default(), true).onboarded, "a library means Lodestar was used before");
-        let old: Settings = serde_json::from_str(r#"{"apple_id":"","refresh_warning_days":2}"#).unwrap();
-        assert!(!old.onboarded, "the field defaults to false when missing");
+        let (fresh, changed) = migrate(None, false);
+        assert!(!fresh.onboarded && !changed, "a brand-new install sees setup");
+        let (old, changed) = migrate(Some(br#"{"apple_id":"a@b.c","refresh_warning_days":2}"#), false);
+        assert!(old.onboarded && changed, "an Apple ID from before setup existed");
+        let (lib, _) = migrate(Some(br#"{"apple_id":""}"#), true);
+        assert!(lib.onboarded, "a library means Lodestar was used before");
+        assert_eq!(old.refresh_warning_days, 2, "migration keeps the rest of the file");
+    }
+
+    #[test]
+    fn signing_in_during_setup_does_not_skip_the_rest_of_it() {
+        // Setup saved the Apple ID, then the person quit before Continue.
+        let (s, changed) = migrate(Some(br#"{"apple_id":"a@b.c","remember_password":true,"onboarded":false}"#), false);
+        assert!(!s.onboarded && !changed);
+        let (done, _) = migrate(Some(br#"{"apple_id":"","onboarded":true}"#), false);
+        assert!(done.onboarded);
     }
 }
