@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="#1A1917"/>
+  <rect x="100.5" y="100.5" width="823" height="823" rx="184.5" fill="none" stroke="#2E2C29" stroke-width="1"/>
+  <!-- tips: N(512,282) E(710,512) S(512,742) W(314,512); edges bowed to centre -->
+  <path d="M512 282 Q530 494 710 512 Q530 530 512 742 Q494 530 314 512 Q494 494 512 282 Z" fill="#F5F3EF"/>
+  <circle cx="512" cy="226" r="19" fill="#E04B1F"/>
+</svg>

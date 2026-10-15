@@ -1,0 +1,45 @@
+[package]
+name = "lodestar"
+version = "1.0.0"
+description = "Free, native Rust sideloader for iPhone, iPad and Apple TV 4K"
+edition = "2024"
+# Highest minimum among dependencies (egui 0.36 needs 1.95).
+rust-version = "1.95"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/asroya/lodestar"
+keywords = ["sideloading", "ios", "tvos", "apple-tv", "macos"]
+categories = ["development-tools"]
+# An application, not a library: never published to crates.io by accident.
+publish = false
+
+[dependencies]
+anyhow = "1.0.104"
+apple-codesign-quick = "0.1"
+dirs = "7.0.0"
+eframe = "0.36.2"
+gethostname = "1.1.0"
+http = "1"
+idevice = { version = "0.1.68", default-features = false, features = ["aws-lc", "afc", "installation_proxy", "remote_pairing", "rsd", "tcp", "tunnel_tcp_stack", "usbmuxd"] }
+isideload = "0.4.6"
+keyring = { version = "3", features = ["apple-native"] }
+mdns-sd = "0.21.5"
+plist = "1.10.1"
+rfd = "0.17.2"
+rootcause = "0.12"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+tokio = { version = "1.53.3", features = ["full"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+zip = "9.0.3"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 4
+strip = true
+
+[dev-dependencies]
+tempfile = "3"
