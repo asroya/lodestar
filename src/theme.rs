@@ -360,11 +360,19 @@ pub fn section_ruled<R>(ui: &mut Ui, p: &Pal, name: &str, closing_rule: bool, ad
 /// The Lodestar mark: a four-point sparkle with concave sides and a signal
 /// dot above its north tip. Same geometry as the app icon.
 pub fn star(painter: &egui::Painter, c: Pos2, size: f32, ink: Color32, accent: Color32) {
-    let outline = sparkle_points(c, size * 0.5);
+    fill_star(painter, c, &sparkle_points(c, size * 0.5, 0.0), ink);
+    painter.circle_filled(c + vec2(0.0, -size * 0.5 - size * 0.16), size * 0.08, accent);
+}
+
+/// Fills a star outline (from `sparkle_points`) as a fan around its centre `c`.
+pub fn fill_star(painter: &egui::Painter, c: Pos2, outline: &[Pos2], color: Color32) {
+    if color.a() == 0 {
+        return;
+    }
     let mut mesh = egui::Mesh::default();
-    mesh.colored_vertex(c, ink);
-    for q in &outline {
-        mesh.colored_vertex(*q, ink);
+    mesh.colored_vertex(c, color);
+    for q in outline {
+        mesh.colored_vertex(*q, color);
     }
     let n = outline.len() as u32;
     for i in 0..n {
@@ -372,26 +380,178 @@ pub fn star(painter: &egui::Painter, c: Pos2, size: f32, ink: Color32, accent: C
     }
     painter.add(Shape::mesh(mesh));
     // A hairline outline gives the mesh anti-aliased edges.
-    painter.add(Shape::closed_line(outline, Stroke::new(0.6, ink)));
-    painter.circle_filled(c + vec2(0.0, -size * 0.5 - size * 0.16), size * 0.08, accent);
+    painter.add(Shape::closed_line(outline.to_vec(), Stroke::new(0.6, color)));
 }
 
+/// Points per edge of the star outline; the outline has four times as many.
+pub const STAR_EDGE_POINTS: usize = 10;
+
+/// The star outline around `c` with half-height `l`, rotated by `rot` radians.
 /// Tips on the axes (horizontal arms 86% of vertical), edges bowed toward the
-/// centre as quadratic curves.
-fn sparkle_points(c: Pos2, l: f32) -> Vec<Pos2> {
+/// centre as quadratic curves. Radially monotonic from `c`: every ray from the
+/// centre crosses the outline once.
+pub fn sparkle_points(c: Pos2, l: f32, rot: f32) -> Vec<Pos2> {
     let tips = [vec2(0.0, -l), vec2(l * 0.86, 0.0), vec2(0.0, l), vec2(-l * 0.86, 0.0)];
-    let mut pts = Vec::new();
+    let (sin, cos) = rot.sin_cos();
+    let turn = |v: Vec2| vec2(v.x * cos - v.y * sin, v.x * sin + v.y * cos);
+    let mut pts = Vec::with_capacity(4 * STAR_EDGE_POINTS);
     for i in 0..4 {
         let a = tips[i];
         let b = tips[(i + 1) % 4];
         let ctrl = (a + b) * 0.09;
-        for k in 0..10 {
-            let t = k as f32 / 10.0;
+        for k in 0..STAR_EDGE_POINTS {
+            let t = k as f32 / STAR_EDGE_POINTS as f32;
             let u = 1.0 - t;
-            pts.push(c + a * (u * u) + ctrl * (2.0 * u * t) + b * (t * t));
+            pts.push(c + turn(a * (u * u) + ctrl * (2.0 * u * t) + b * (t * t)));
         }
     }
     pts
+}
+
+/// The first `frac` of a closed outline, as an open polyline (for drawing it on).
+pub fn partial_outline(outline: &[Pos2], frac: f32) -> Vec<Pos2> {
+    partial_path(outline, frac, true)
+}
+
+/// The first `frac` (by length) of a polyline; `closed` includes the edge back
+/// to the first point.
+fn partial_path(pts: &[Pos2], frac: f32, closed: bool) -> Vec<Pos2> {
+    let n = pts.len();
+    if n < 2 || frac <= 0.0 {
+        return Vec::new();
+    }
+    let edges = if closed { n } else { n - 1 };
+    let len = |i: usize| (pts[(i + 1) % n] - pts[i]).length();
+    let total: f32 = (0..edges).map(len).sum();
+    let mut left = total * frac.min(1.0);
+    let mut out = vec![pts[0]];
+    for i in 0..edges {
+        let seg = len(i);
+        let next = pts[(i + 1) % n];
+        if left >= seg {
+            out.push(next);
+            left -= seg;
+        } else {
+            out.push(pts[i] + (next - pts[i]) * (left / seg.max(1e-6)));
+            break;
+        }
+    }
+    out
+}
+
+// ───────────────────────── loaders ─────────────────────────
+//
+// One motion per meaning. Each takes the time it has been showing (`t`, in
+// seconds) and paints into the given painter. Under reduced motion they draw
+// their resting shape.
+
+/// WORKING: a vermilion segment travels along a hairline track and stretches
+/// while it moves fastest. Busy, and it will finish on its own.
+pub fn working_line(painter: &egui::Painter, r: Rect, p: &Pal, t: f32) {
+    painter.rect_filled(r, CornerRadius::same(1), p.line);
+    let seg_w = r.width() * 0.32;
+    let (x, stretch) = if reduced() {
+        (r.left() + (r.width() - seg_w) * 0.5, 1.0)
+    } else {
+        let k = (t / 1.15).fract();
+        let x = r.left() - seg_w * 1.1 + crate::motion::in_out(k) * (r.width() + seg_w * 2.2);
+        (x, 0.55 + 0.8 * (std::f32::consts::PI * crate::motion::in_out(k)).sin())
+    };
+    let w = seg_w * stretch;
+    let cx = x + seg_w * 0.5;
+    let seg = Rect::from_min_max(
+        pos2((cx - w * 0.5).max(r.left()), r.top()),
+        pos2((cx + w * 0.5).min(r.right()), r.bottom()),
+    );
+    if seg.width() > 0.0 {
+        painter.rect_filled(seg, CornerRadius::same(1), p.accent);
+    }
+}
+
+/// SEARCHING: the star snaps a quarter turn on a snappy spring, then rests.
+pub fn search_star(painter: &egui::Painter, c: Pos2, l: f32, p: &Pal, t: f32) {
+    let turn = if reduced() {
+        0.0
+    } else {
+        let cycle = 1.7;
+        let n = (t / cycle).floor();
+        let k = t - n * cycle;
+        (n + crate::motion::SNAPPY.at(k)) * std::f32::consts::FRAC_PI_2
+    };
+    fill_star(painter, c, &sparkle_points(c, l, turn), p.ink);
+    painter.circle_filled(c + vec2(0.0, -l * 1.32), l * 0.17, p.accent);
+}
+
+/// WAITING ON YOU: a vermilion dot breathes and sends out rings. The only
+/// vermilion loader: something outside Lodestar needs an answer.
+pub fn beacon(painter: &egui::Painter, c: Pos2, r: f32, p: &Pal, t: f32) {
+    if !reduced() {
+        for offset in [0.0, 0.9] {
+            let k = ((t + offset) / 1.8).fract();
+            let e = crate::motion::out_expo(k);
+            painter.circle_stroke(c, r * (1.0 + 3.0 * e), Stroke::new(1.5, p.accent.gamma_multiply(0.6 * (1.0 - e))));
+        }
+    }
+    let breathe = if reduced() {
+        1.0
+    } else {
+        1.0 + 0.14 * (std::f32::consts::PI * crate::motion::in_out((t / 1.8).fract())).sin()
+    };
+    painter.circle_filled(c, r * breathe, p.accent);
+}
+
+/// DONE: the disc lands with real bounce, then the tick draws once it has
+/// settled. `t` is the time since the step finished.
+pub fn done_tick(painter: &egui::Painter, c: Pos2, r: f32, p: &Pal, t: f32) {
+    let (s, k) = if reduced() {
+        (1.0, 1.0)
+    } else {
+        (crate::motion::LAND.at(t), crate::motion::out_expo(crate::motion::phase(t, 0.16, 0.4)))
+    };
+    painter.circle_filled(c, r * s, p.ink);
+    if k > 0.0 {
+        let u = r / 12.0;
+        let pts = [c + vec2(-5.5, 0.3) * u, c + vec2(-1.7, 4.0) * u, c + vec2(5.6, -3.6) * u];
+        let line = partial_path(&pts, k, false);
+        painter.add(Shape::line(line, Stroke::new(2.0 * u.max(0.8), p.bg)));
+    }
+}
+
+/// Eases a value toward `target` along a spring, restarting from wherever it
+/// is whenever the target changes. Instant under reduced motion.
+pub fn spring_to(ctx: &egui::Context, id: Id, target: f32, spring: crate::motion::Spring) -> f32 {
+    if reduced() {
+        return target;
+    }
+    let now = ctx.input(|i| i.time);
+    let value_at =
+        |(from, to, t0): (f32, f32, f64), now: f64| from + (to - from) * spring.at((now - t0) as f32 / slowmo());
+    let state = ctx.data_mut(|d| {
+        let e = d.get_temp_mut_or_insert_with(id, || (target, target, now - 60.0));
+        if e.1 != target {
+            *e = (value_at(*e, now), target, now);
+        }
+        *e
+    });
+    let elapsed = (now - state.2) as f32 / slowmo();
+    if elapsed < spring.settle() {
+        ctx.request_repaint();
+    }
+    value_at(state, now)
+}
+
+/// Design seconds since `key` last changed for `id` (large if it never did
+/// while visible). Lets a widget play a one-shot animation on a state change.
+pub fn since_change(ctx: &egui::Context, id: Id, key: u64) -> f32 {
+    let now = ctx.input(|i| i.time);
+    let t0 = ctx.data_mut(|d| {
+        let e = d.get_temp_mut_or_insert_with(id, || (key, now - 60.0));
+        if e.0 != key {
+            *e = (key, now);
+        }
+        e.1
+    });
+    ((now - t0) as f32 / slowmo()).max(0.0)
 }
 
 pub fn dot(ui: &mut Ui, color: Color32) {

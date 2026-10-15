@@ -72,6 +72,9 @@ pub struct Settings {
     /// Optional custom anisette v3 server. Empty = library default.
     pub anisette_url: String,
     pub refresh_warning_days: u32,
+    /// Finished first-run setup. Decides Starfall vs Iris at launch and whether
+    /// Local Network browsing starts straight away.
+    pub onboarded: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -110,7 +113,17 @@ fn write_json<T: Serialize>(name: &str, value: &T) {
 }
 
 pub fn load_settings() -> Settings {
-    with_defaults(read_json("settings.json"))
+    let has_library = data_dir().join("library.json").exists();
+    migrate(with_defaults(read_json("settings.json")), has_library)
+}
+
+/// People who used Lodestar before first-run setup existed have already done
+/// it in effect: never show them setup or the first-launch animation.
+fn migrate(mut s: Settings, has_library: bool) -> Settings {
+    if !s.onboarded && (!s.apple_id.is_empty() || has_library) {
+        s.onboarded = true;
+    }
+    s
 }
 
 /// Fills in values a missing or older settings file doesn't carry.
@@ -143,6 +156,20 @@ pub fn set_keychain_password(email: &str, password: Option<&str>) {
             Some(p) => entry.set_password(p),
             None => entry.delete_credential(),
         };
+    }
+}
+
+/// Writes, reads back and removes a throwaway keychain item, so macOS asks for
+/// Keychain access during setup rather than in the middle of the first install.
+/// Blocks while a macOS dialog is open: call it off the UI thread.
+pub fn keychain_probe() -> Result<(), String> {
+    let entry = keyring::Entry::new(KEYCHAIN_SERVICE, "setup-probe").map_err(|e| e.to_string())?;
+    entry.set_password("ok").map_err(|e| e.to_string())?;
+    let read = entry.get_password().map_err(|e| e.to_string());
+    let _ = entry.delete_credential();
+    match read? {
+        v if v == "ok" => Ok(()),
+        _ => Err("The keychain returned something unexpected".into()),
     }
 }
 
@@ -250,5 +277,16 @@ mod tests {
         assert_eq!(s.refresh_warning_days, 2);
         let custom = with_defaults(serde_json::from_str(r#"{"refresh_warning_days":5}"#).unwrap());
         assert_eq!(custom.refresh_warning_days, 5);
+    }
+
+    #[test]
+    fn existing_users_count_as_onboarded() {
+        let fresh = migrate(Settings::default(), false);
+        assert!(!fresh.onboarded, "a brand-new install sees setup");
+        let signed_in = migrate(Settings { apple_id: "a@b.c".into(), ..Default::default() }, false);
+        assert!(signed_in.onboarded);
+        assert!(migrate(Settings::default(), true).onboarded, "a library means Lodestar was used before");
+        let old: Settings = serde_json::from_str(r#"{"apple_id":"","refresh_warning_days":2}"#).unwrap();
+        assert!(!old.onboarded, "the field defaults to false when missing");
     }
 }
