@@ -27,7 +27,11 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-CI runs the same three. Please add a test when you change behaviour that doesn't
+CI runs the same three. If you can't use GitHub Actions (or want to check before
+pushing), `./packaging/check.sh` runs everything CI does plus a bundle build, a
+signature check and a launch smoke test. It rebuilds `dist/Lodestar.app` with an
+ad-hoc signature, so run `./packaging/bundle.sh` afterwards to sign it with your own
+identity again. Please add a test when you change behaviour that doesn't
 need Apple or a device: IPA parsing, ranking logic, persistence and the like are
 all easy to cover. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for where things live.
 

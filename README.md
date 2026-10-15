@@ -128,6 +128,7 @@ for how to report a vulnerability.
 cargo test                                   # 30 tests, no device or Apple ID needed
 cargo clippy --all-targets -- -D warnings
 cargo fmt --check
+./packaging/check.sh                         # all of the above + bundle, signature and launch check
 ./testapp/build.sh                           # tiny tvOS test app → testapp/build/LodestarHello.tipa
 LODESTAR_MOTION_SLOWMO=10 cargo run          # animations 10× slower, for design review
 ```
