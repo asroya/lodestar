@@ -1,0 +1,16 @@
+# Build output
+/target
+/dist
+
+# macOS
+.DS_Store
+
+# Anything that could be a user's app, signing material or local state
+*.ipa
+*.tipa
+*.p12
+*.mobileprovision
+*.plist.local
+
+# Test fixture build output (see testapp/build.sh)
+/testapp/build
