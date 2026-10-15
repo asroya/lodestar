@@ -132,6 +132,7 @@ pub struct Engine {
     cmd_tx: mpsc::UnboundedSender<Cmd>,
     answer_tx: mpsc::UnboundedSender<Option<String>>,
     pub repaint: Arc<dyn Fn() + Send + Sync>,
+    net: NetScanner,
 }
 
 /// Lets pipeline code ask the user something and await the answer.
@@ -193,7 +194,13 @@ impl Engine {
         }));
         let (cmd_tx, cmd_rx) = mpsc::unbounded_channel();
         let (answer_tx, answer_rx) = mpsc::unbounded_channel();
-        let engine = Engine { shared: shared.clone(), cmd_tx, answer_tx, repaint: repaint.clone() };
+        let engine =
+            Engine { shared: shared.clone(), cmd_tx, answer_tx, repaint: repaint.clone(), net: NetScanner::new() };
+        // Before setup is finished, Local Network access is asked for from the
+        // setup screen instead, at the moment the person presses Allow.
+        if settings.onboarded {
+            engine.start_net_scan();
+        }
 
         let prompter =
             Prompter { shared: shared.clone(), rx: Arc::new(AsyncMutex::new(answer_rx)), repaint: repaint.clone() };
@@ -233,10 +240,7 @@ impl Engine {
                     }
 
                     // Device discovery.
-                    let net = {
-                        let repaint = e2.repaint.clone();
-                        NetScanner::start(move || repaint())
-                    };
+                    let net = e2.net.clone();
                     {
                         let shared = e2.shared.clone();
                         let repaint = e2.repaint.clone();
@@ -277,6 +281,17 @@ impl Engine {
 
     pub fn answer(&self, value: Option<String>) {
         let _ = self.answer_tx.send(value);
+    }
+
+    /// Starts looking for Apple TVs on the network (and so triggers the macOS
+    /// Local Network prompt the first time). Safe to call more than once.
+    pub fn start_net_scan(&self) {
+        let repaint = self.repaint.clone();
+        self.net.begin(move || repaint());
+    }
+
+    pub fn net_scan_started(&self) -> bool {
+        self.net.started()
     }
 }
 

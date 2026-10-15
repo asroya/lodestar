@@ -176,15 +176,31 @@ struct NetEntry {
 }
 
 /// Background Bonjour browser. Cheap to clone.
-#[derive(Clone)]
+///
+/// Created idle: the first multicast query is what makes macOS ask for Local
+/// Network access, so browsing starts only when `begin` is called (at launch
+/// for people who finished setup, or when they press Allow during setup).
+#[derive(Clone, Default)]
 pub struct NetScanner {
     entries: Arc<Mutex<HashMap<String, NetEntry>>>,
+    started: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl NetScanner {
-    pub fn start(on_change: impl Fn() + Send + 'static) -> Self {
-        let entries: Arc<Mutex<HashMap<String, NetEntry>>> = Default::default();
-        let e2 = entries.clone();
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn started(&self) -> bool {
+        self.started.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Starts browsing. Later calls do nothing.
+    pub fn begin(&self, on_change: impl Fn() + Send + 'static) {
+        if self.started.swap(true, std::sync::atomic::Ordering::Relaxed) {
+            return;
+        }
+        let e2 = self.entries.clone();
         std::thread::Builder::new()
             .name("bonjour".into())
             .spawn(move || {
@@ -212,7 +228,6 @@ impl NetScanner {
                 }
             })
             .expect("spawn bonjour thread");
-        Self { entries }
     }
 
     pub fn devices(&self) -> Vec<Device> {

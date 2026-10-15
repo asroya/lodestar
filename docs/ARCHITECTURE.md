@@ -24,8 +24,11 @@ answers to its prompts come back.
 | `device.rs` | Finds devices (USB scanner, Bonjour browser) and opens a CoreDevice tunnel to a network device. |
 | `ipa.rs` | Reads an IPA's `Info.plist` straight from the zip, without extracting it. |
 | `store.rs` | `settings.json`, `library.json`, Keychain access, formatting helpers. |
-| `app.rs` | Every page and dialog. Holds no business logic beyond view state. |
-| `theme.rs` | Colours, fonts, controls and the motion layer. |
+| `app.rs` | Every page and dialog. Holds no business logic beyond view state. Decides the window's phase: boot, first-run setup or the app. |
+| `app/onboarding.rs` | First run: the Welcome screen and the Setup checklist (Apple ID, Keychain, Local Network, a device). |
+| `boot.rs` | The boot animations: Starfall on the first launch, Iris after that. |
+| `motion.rs` | Springs, keyframe tracks and easing curves, as pure functions of time. |
+| `theme.rs` | Colours, fonts, controls, loaders and the motion helpers that use the egui clock. |
 
 ## An install, step by step
 
@@ -85,9 +88,19 @@ far on hardware.
 `theme.rs` defines the palette (`LIGHT`/`DARK`), typography (IBM Plex through named
 font families), and controls (`primary`, `secondary`, `link`, `checkbox`, `section`).
 Motion helpers live beside them: `tween`/`tween_to` ease values, `reveal` staggers
-the blocks of a page, `bar_live` animates progress. Every duration goes through
-`dur()`, which is zero under *Reduce Motion* and multiplied by
-`LODESTAR_MOTION_SLOWMO` for design review.
+the blocks of a page, `bar_live` animates progress, and `spring_to` moves a value
+along a spring from `motion.rs`. Loaders have one motion per meaning:
+`working_line` (busy), `search_star` (looking), `beacon` (waiting on you, the only
+vermilion one) and `done_tick` (finished). Every duration goes through `dur()` or
+`slowmo()`. Durations are zero under *Reduce Motion*, where the boot becomes a
+200 ms crossfade, and are multiplied by `LODESTAR_MOTION_SLOWMO` for design review.
+
+The boot (`boot.rs`) paints on a foreground layer over the real UI. Iris cuts a
+star-shaped hole in the ground: a mesh strip between the star's outline and a ring
+far outside the window. It grows the star until it covers every corner. Starfall
+throws 174 seeded stars, then blooms the centre star into the Welcome screen. A
+click or Space, Return or Esc skips either one. The full spec is in
+[`docs/design/onboarding-build-spec.md`](design/onboarding-build-spec.md).
 
 ## Testing
 

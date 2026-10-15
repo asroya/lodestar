@@ -1,9 +1,11 @@
 //! Lodestar — a free, native-Rust sideloader for iPhone, iPad and Apple TV.
 
 mod app;
+mod boot;
 mod device;
 mod engine;
 mod ipa;
+mod motion;
 mod pipeline;
 mod store;
 mod theme;
