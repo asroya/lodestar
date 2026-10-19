@@ -44,14 +44,25 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
 
-      - name: Bundle (ad-hoc signed)
-        run: LODESTAR_SIGN_IDENTITY=- ./packaging/bundle.sh --zip
+      - name: Bundle (ad-hoc signed), zip and disk image
+        run: LODESTAR_SIGN_IDENTITY=- ./packaging/bundle.sh --zip --dmg
 
       - name: Verify the signature
         run: codesign --verify --deep --strict dist/Lodestar.app
 
+      - name: Verify the disk image
+        run: |
+          hdiutil verify dist/Lodestar-*.dmg
+          mnt=$(mktemp -d)
+          hdiutil attach -nobrowse -readonly -mountpoint "$mnt" dist/Lodestar-*.dmg
+          codesign --verify --deep --strict "$mnt/Lodestar.app"
+          test -L "$mnt/Applications"
+          hdiutil detach "$mnt"
+
       - uses: actions/upload-artifact@v4
         with:
           name: Lodestar-macos
-          path: dist/*.zip
+          path: |
+            dist/*.zip
+            dist/*.dmg
           if-no-files-found: error

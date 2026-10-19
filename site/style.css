@@ -355,14 +355,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 @media (max-width: 560px) { .servers li { grid-template-columns: minmax(0, 1fr); } }
 
 /* support */
-.support-shot { margin: 28px 0 0; padding: 0; max-width: 520px; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
-.support-shot img { width: 100%; }
-.support-shot .dark-only { display: none; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .support-shot .dark-only { display: block; } :root:not([data-theme="light"]) .support-shot .light-only { display: none; } }
-:root[data-theme="dark"] .support-shot .dark-only { display: block; }
-:root[data-theme="dark"] .support-shot .light-only { display: none; }
 .give { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
-.give-empty { margin-top: 18px; font-size: 14.5px; color: var(--ink2); }
 .other-help { margin: 28px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
 .other-help li { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 10px; color: var(--ink2); }
 .other-help li::before { content: ""; width: 5px; height: 5px; background: var(--ink3); margin-top: 11px; }

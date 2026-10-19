@@ -9,8 +9,9 @@ All notable changes to Lodestar are recorded here. The format follows
 Full notes: [docs/releases/v1.1.0.md](docs/releases/v1.1.0.md).
 
 ### Added
-- A one-time note after your first successful install saying Lodestar is free, with an
-  optional **Buy me a coffee** link. It never appears again, never covers a sign-in or
+- A one-time note after your first successful install (or, when upgrading with apps
+  already installed, your first refresh) saying Lodestar is free, with an optional
+  **Buy me a coffee** link. It never appears again, never covers a sign-in or
   pairing prompt, and the link stays at the bottom of the sidebar. Opening it hands one
   fixed URL to your browser; Lodestar itself makes no request.
 - A website (`site/`, published to GitHub Pages) with a quick-start guide, screenshots,

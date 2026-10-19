@@ -94,16 +94,14 @@ for (const status of [403, 500]) {
   const { p, ctx } = await page({ js: false });
   const h = await p.getAttribute("[data-download]", "href");
   check(h === "https://github.com/asroya/lodestar/releases/latest", "without JavaScript the download link still works");
-  const shown = await p.isVisible("#give-empty");
-  check(!shown, "without JavaScript no empty-state message flashes");
   await ctx.close();
 }
 
-// 4. Support section: empty config shows the fallback, filled config shows buttons in order.
+// 4. Support section: empty config renders no buttons, filled config shows them in order.
 {
   const { p, ctx } = await page();
-  check(await p.isVisible("#give-empty"), "no payment links configured: fallback text shows");
   check((await p.$$("#give a")).length === 0, "no payment links configured: no dead buttons");
+  check(!(await p.isVisible("#give")), "no payment links configured: the button row is hidden");
   await ctx.close();
 }
 {
@@ -112,7 +110,6 @@ for (const status of [403, 500]) {
   const links = await p.$$eval("#give a", (as) => as.map((a) => [a.textContent, a.getAttribute("href"), a.className]));
   check(links.length === 2, `only https links render (${links.length})`);
   check(links[0][1] === "https://buy.stripe.com/test_123" && /btn-primary/.test(links[0][2]), "first configured link is the primary button");
-  check(!(await p.isVisible("#give-empty")), "fallback hidden when links exist");
   // The app opens #support in a fresh browser tab, so test exactly that.
   const fresh = await ctx.newPage();
   await fresh.route("**/config.js", (r) => r.fulfill({ contentType: "text/javascript", body: cfg }));
@@ -155,12 +152,36 @@ for (const status of [403, 500]) {
   await ctx.close();
 }
 
-// 6. Reduced motion: still works, no infinite animations.
+// 6. Reduced motion: tiles still work, and the countdown holds still.
 {
   const { p, ctx, errors } = await page({ reduced: true });
   await p.click("#job-run");
   await p.waitForSelector("#job.ok", { timeout: 4000 });
   check(errors.length === 0, "reduced motion: install tile completes without errors");
+  const a = await p.textContent("#count");
+  await p.waitForTimeout(1500);
+  check(a === (await p.textContent("#count")) && a !== "Expired", `reduced motion: countdown is a still frame (${a})`);
+  await ctx.close();
+}
+
+// 7. The countdown keeps exactly one animation loop across tab hides and shows.
+{
+  const { p, ctx } = await page();
+  await p.evaluate(() => {
+    window.__raf = 0;
+    const raf = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = (f) => { window.__raf++; return raf(f); };
+  });
+  for (let i = 0; i < 3; i++) {
+    await p.evaluate(() => {
+      Object.defineProperty(document, "hidden", { configurable: true, get: () => false });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+  }
+  await p.evaluate(() => (window.__raf = 0));
+  await p.waitForTimeout(1000);
+  const perSecond = await p.evaluate(() => window.__raf);
+  check(perSecond <= 75, `countdown: one loop after repeated tab switches (${perSecond} frames/s)`);
   await ctx.close();
 }
 

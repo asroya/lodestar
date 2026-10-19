@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Lodestar</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="Free, open-source sideloading for iPhone, iPad and Apple TV 4K. A native Mac app that signs apps with your own Apple ID and installs them.">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#f5f3ef" media="(prefers-color-scheme: light)">
@@ -32,8 +31,8 @@
     <nav class="nav" aria-label="Sections">
       <a href="#guide">Quick start</a>
       <a href="#source">Source</a>
-      <a href="#faq">Questions</a>
       <a href="#support">Support</a>
+      <a href="#faq">Questions</a>
       <a href="https://github.com/asroya/lodestar">GitHub</a>
     </nav>
     <a class="btn btn-secondary btn-sm" data-download href="https://github.com/asroya/lodestar/releases/latest">Download</a>
@@ -42,14 +41,14 @@
 
 <main>
   <section class="hero wrap" aria-labelledby="hero-title">
-    <span class="pill"><span class="dot" aria-hidden="true"></span><span data-version>v1.0.0</span> · macOS 13+ · Apple silicon</span>
+    <span class="pill"><span class="dot" aria-hidden="true"></span><span data-version>v1.1.0</span> · macOS 13+ · Apple silicon</span>
     <h1 id="hero-title">Free sideloading for iPhone, iPad and Apple TV</h1>
     <p class="lede">A native Mac app that signs an <b>.ipa</b> with your own Apple ID and installs it on your device. One 21&nbsp;MB binary. No accounts, no analytics, no paid tier.</p>
     <div class="cta">
-      <a class="btn btn-primary" data-download href="https://github.com/asroya/lodestar/releases/latest">Download for Mac <span class="sub" data-download-meta hidden></span></a>
+      <a class="btn btn-primary" data-download href="https://github.com/asroya/lodestar/releases/latest">Download for Mac</a>
       <a class="btn btn-secondary" href="https://github.com/asroya/lodestar">View on GitHub</a>
     </div>
-    <p class="cta-note">MIT licensed · <a class="link" href="#source">build it yourself</a> · <a class="link" href="https://github.com/asroya/lodestar/archive/refs/heads/main.zip">source .zip</a></p>
+    <p class="cta-note"><span data-download-meta hidden></span>MIT licensed · <a class="link" href="#source">build it yourself</a> · <a class="link" href="https://github.com/asroya/lodestar/archive/refs/heads/main.zip">source .zip</a></p>
   </section>
 
   <section class="screens wrap" aria-label="Screens">
@@ -66,7 +65,7 @@
 
   <section class="wrap" aria-labelledby="tiles-title">
     <div class="tiles-head">
-      <h2 id="tiles-title">The parts you touch, working</h2>
+      <h2 id="tiles-title">Try the controls</h2>
       <p>These are the app's own controls rebuilt for the web. Try them; nothing leaves this page.</p>
     </div>
     <div class="tiles">
@@ -161,7 +160,7 @@
             <li><span class="n">04</span><div>
               <h3>Connect a device</h3>
               <p><strong>iPhone or iPad:</strong> plug it in, unlock it and tap Trust. On iOS 16 and later, turn on Developer Mode in Settings › Privacy &amp; Security.</p>
-              <p><strong>Apple TV 4K:</strong> keep it on the same Wi-Fi as your Mac. One already paired with this Mac appears by itself. To pair a new one, open Settings › Remotes and Devices › Remote App and Devices on the TV, then choose Pair in Lodestar's Devices page and type the code.</p>
+              <p><strong>Apple TV 4K:</strong> keep it on the same Wi-Fi as your Mac. One already paired with this Mac appears by itself. To pair a new one, open Settings › Remotes and Devices › Remote App and Devices on the TV, then choose Pair in Lodestar's Devices page and type the code. First-time pairing hasn't been verified on hardware yet, so please <a class="link" href="https://github.com/asroya/lodestar/issues/new?template=bug_report.md">report how it goes</a>.</p>
             </div></li>
             <li><span class="n">05</span><div>
               <h3>Install, then refresh within 7 days</h3>
@@ -211,11 +210,27 @@ open dist/Lodestar.app</pre><button class="copy" type="button" data-copy="cmd-bu
       </div>
     </section>
 
+    <section class="section" id="support" aria-labelledby="support-title">
+      <div class="wrap">
+        <div class="label">Support</div>
+        <div class="body">
+          <h2 id="support-title">Lodestar is free</h2>
+          <p class="lead">Every feature is free, and there's no obligation to pay, now or later.</p>
+          <p>It does take work to build and to keep working as Apple changes things. If you'd like to say thanks, you can buy me a coffee.</p>
+          <div class="give" id="give"></div>
+          <ul class="other-help">
+            <li><span>Star the repository on <a class="link" href="https://github.com/asroya/lodestar">GitHub</a> so others find it.</span></li>
+            <li><span>Tell me what works on your hardware. iPad and first-time Apple TV pairing still need someone to <a class="link" href="https://github.com/asroya/lodestar/issues/new?template=bug_report.md">report back</a>.</span></li>
+            <li><span>Pick up a <a class="link" href="https://github.com/asroya/lodestar/blob/main/CONTRIBUTING.md">first contribution</a>: background refresh and JIT are open.</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
     <section class="section faq" id="faq" aria-labelledby="faq-title">
       <div class="wrap">
         <div class="label">Questions</div>
         <div class="body">
-          <h2 id="faq-title">Questions people ask</h2>
+          <h2 id="faq-title">Questions</h2>
           <details><summary>Is it really free?</summary><p>Yes. Every feature is free and there is no paid tier, account or trial. If you'd like to support the work, there's a way to buy me a coffee below, with no obligation.</p></details>
           <details><summary>Why do apps stop working after 7 days?</summary><p>That's Apple's rule for apps signed with a free developer account. Lodestar counts down each app and re-signs it in one click before it expires. A paid Apple developer account extends this, but Lodestar doesn't need one.</p></details>
           <details><summary>Why does macOS warn me when I open it?</summary><p>Notarization needs a paid Apple Developer ID, and release builds aren't notarized yet. The app is the same code you can read and build from GitHub. Step 02 of the quick start shows how to open it.</p></details>
@@ -226,27 +241,6 @@ open dist/Lodestar.app</pre><button class="copy" type="button" data-copy="cmd-bu
       </div>
     </section>
 
-    <section class="section" id="support" aria-labelledby="support-title">
-      <div class="wrap">
-        <div class="label">Support</div>
-        <div class="body">
-          <h2 id="support-title">Lodestar is free</h2>
-          <p class="lead">Every feature is free, and there's no obligation to pay, now or later.</p>
-          <p>It does take work to build and to keep working as Apple changes things. If you'd like to say thanks, you can buy me a coffee.</p>
-          <div class="give" id="give"></div>
-          <p class="give-empty" id="give-empty" hidden>Payment links are on their way. Until then, the ways below help just as much.</p>
-          <ul class="other-help">
-            <li><span>Star the repository on <a class="link" href="https://github.com/asroya/lodestar">GitHub</a> so others find it.</span></li>
-            <li><span>Tell us what works on your hardware. iPad and first-time Apple TV pairing still need someone to <a class="link" href="https://github.com/asroya/lodestar/issues/new?template=bug_report.md">report back</a>.</span></li>
-            <li><span>Pick up a <a class="link" href="https://github.com/asroya/lodestar/blob/main/CONTRIBUTING.md">first contribution</a>: background refresh and JIT are open.</span></li>
-          </ul>
-          <figure class="support-shot">
-            <img class="light-only" src="images/support-light.jpg" width="1018" height="648" alt="The note in Lodestar that says the app is free, with Buy me a coffee and Not now buttons">
-            <img class="dark-only" src="images/support-dark.jpg" width="1018" height="648" alt="">
-          </figure>
-        </div>
-      </div>
-    </section>
   </div>
 </main>
 

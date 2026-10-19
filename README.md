@@ -140,8 +140,8 @@ LODESTAR_MOTION_SLOWMO=10 cargo run          # animations 10× slower, for desig
 
 How it fits together is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-**Releasing.** Bump `version` in `Cargo.toml`, add `docs/releases/vX.Y.Z.md`, then push a
-`vX.Y.Z` tag. The *Release* workflow builds, verifies and attaches the zip, the disk image
+**Releasing.** Bump `version` in `Cargo.toml` and the version shown in `site/index.html`
+(`data-version`), add `docs/releases/vX.Y.Z.md`, then push a `vX.Y.Z` tag. The *Release* workflow builds, verifies and attaches the zip, the disk image
 and checksums.
 
 **Website.** `site/` is plain HTML, CSS and JavaScript with no build step; preview it with
@@ -152,7 +152,7 @@ Pages from `main`.
 ## Supporting Lodestar
 
 Lodestar is free, and there's no obligation to pay for it. After your first successful
-install it says so once, with an optional **Buy me a coffee** link that stays at the
+install (or, if you're upgrading, your first refresh) it says so once, with an optional **Buy me a coffee** link that stays at the
 bottom of the sidebar. The link opens the
 [website's support section](https://asroya.github.io/lodestar/#support) in your
 browser; Lodestar makes no request of its own. Starring the repository, reporting how

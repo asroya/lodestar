@@ -303,7 +303,7 @@ impl LodestarApp {
         // Support link and account, pinned to the bottom.
         let account = self.engine.shared.lock().unwrap().account();
         ui.add_space((ui.available_height() - 130.0).max(12.0));
-        if link(ui, p, "Buy me a coffee", Some(p.ink2)).clicked() {
+        if link(ui, p, "Buy me a coffee", Some(p.ink3)).clicked() {
             self.support_open = true;
             self.support_first = false;
         }
@@ -1241,18 +1241,22 @@ impl LodestarApp {
         }
     }
 
-    /// Arms the one-time note when the first job succeeds. The flag is saved at
+    /// Arms the one-time note when the first install (or, after upgrading, refresh) succeeds. The flag is saved at
     /// once, so the note can't appear twice even if Lodestar quits before it opens.
     fn offer_support(&mut self, ctx: &egui::Context) {
         let now = ctx.input(|i| i.time);
         let mut s = self.engine.shared.lock().unwrap();
+        let mut save = None;
         if support::prompt_due(s.settings.support_prompt_shown, s.prompt.is_some(), s.job.as_ref()) {
             s.settings.support_prompt_shown = true;
-            store::save_settings(&s.settings);
+            save = Some(s.settings.clone());
             self.support_note_at = Some(now + SUPPORT_NOTE_DELAY);
         }
         let prompt_open = s.prompt.is_some();
         drop(s);
+        if let Some(settings) = save {
+            store::save_settings(&settings);
+        }
         if let Some(at) = self.support_note_at {
             if now >= at && !prompt_open {
                 self.support_note_at = None;
@@ -1272,7 +1276,7 @@ impl LodestarApp {
         let mut close = false;
         let shown = dialog(ctx, p, "support").show(ctx, |ui| {
             ui.set_width(372.0);
-            ui.label(label(p, "Free to use"));
+            ui.label(label(p, "A note from the developer"));
             ui.add_space(2.0);
             ui.label(
                 RichText::new("Lodestar is free").family(semibold()).size(20.0).color(p.ink).extra_letter_spacing(-0.3),

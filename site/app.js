@@ -31,7 +31,7 @@ function applyRelease(release) {
   $$("[data-download]").forEach((a) => (a.href = asset.browser_download_url));
   const kind = /\.dmg$/i.test(asset.name) ? "disk image" : "zip";
   $$("[data-download-meta]").forEach((el) => {
-    el.textContent = `${release.tag_name} · ${megabytes(asset.size)} ${kind}`;
+    el.textContent = `${release.tag_name} · ${megabytes(asset.size)} ${kind} · `;
     el.hidden = false;
   });
 }
@@ -64,7 +64,6 @@ resolveDownload();
   const box = $("#give");
   const ways = (window.LODESTAR_SUPPORT || []).filter((w) => /^https:\/\//.test(w.url || ""));
   if (!ways.length) {
-    $("#give-empty").hidden = false;
     box.hidden = true;
     return;
   }
@@ -275,12 +274,13 @@ resolveDownload();
   const state = $("#count-state");
   const note = $("#count-note");
   let start = performance.now();
+  let frame = 0;
   function fmt(s) {
     if (s <= 0) return "Expired";
     const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
     return d > 0 ? `${d}d ${String(h).padStart(2, "0")}h ${String(m).padStart(2, "0")}m` : `${h}h ${String(m).padStart(2, "0")}m`;
   }
-  function tick(now) {
+  function render(now) {
     const left = Math.max(0, WEEK - ((now - start) / 1000) * SPEED);
     el.textContent = fmt(left);
     const due = left < DUE;
@@ -288,15 +288,25 @@ resolveDownload();
     meter.style.width = `${(left / WEEK) * 100}%`;
     state.textContent = left <= 0 ? "Expired" : due ? "Due" : "Signed";
     note.textContent = left <= 0 ? "Refresh to sign it again" : due ? "Refresh before it runs out" : "Expires in 7 days";
-    if (!document.hidden) requestAnimationFrame(tick);
   }
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) requestAnimationFrame(tick); });
-  $("#count-refresh").addEventListener("click", () => { start = performance.now(); });
+  function tick(now) {
+    render(now);
+    frame = document.hidden ? 0 : requestAnimationFrame(tick);
+  }
+  function run() {
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(tick);
+  }
   if (reduced) {
-    // A still frame two days out, refreshed by the button.
-    start = performance.now() - ((WEEK - 1.5 * 86400) / SPEED) * 1000;
+    // Reduce Motion: a still frame, a day and a half from due, that Refresh resets.
+    const still = () => render(start + ((WEEK - 3.5 * 86400) / SPEED) * 1000);
+    still();
+    $("#count-refresh").addEventListener("click", () => { render(start); setTimeout(still, 900); });
+  } else {
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) run(); });
+    $("#count-refresh").addEventListener("click", () => { start = performance.now(); });
+    run();
   }
-  requestAnimationFrame(tick);
 })();
 
 // ── copy buttons ──

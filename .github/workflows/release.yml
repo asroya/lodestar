@@ -44,6 +44,15 @@ jobs:
           sparse-checkout-cone-mode: false
       - run: cp .release-tools/packaging/bundle.sh packaging/bundle.sh && rm -rf .release-tools
 
+      # From 1.1 the app's "Buy me a coffee" opens the website's support section; don't
+      # ship a release whose button would land on a page with no way to pay.
+      - name: The website lists at least one way to support
+        run: |
+          if [ -f site/config.js ] && ! grep -Eq 'url: *"https://' site/config.js; then
+            echo "site/config.js has no payment link yet; add one (Stripe, Buy Me a Coffee, Sponsors or Ko-fi) before releasing" >&2
+            exit 1
+          fi
+
       - name: Tag matches Cargo.toml
         run: |
           version=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
