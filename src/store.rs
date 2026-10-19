@@ -72,6 +72,8 @@ pub struct Settings {
     /// Optional custom anisette v3 server. Empty = library default.
     pub anisette_url: String,
     pub refresh_warning_days: u32,
+    /// The one-time "Lodestar is free" note has been shown.
+    pub support_prompt_shown: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -250,5 +252,15 @@ mod tests {
         assert_eq!(s.refresh_warning_days, 2);
         let custom = with_defaults(serde_json::from_str(r#"{"refresh_warning_days":5}"#).unwrap());
         assert_eq!(custom.refresh_warning_days, 5);
+    }
+
+    #[test]
+    fn settings_from_before_the_support_note_have_not_shown_it() {
+        let s = with_defaults(serde_json::from_str(r#"{"apple_id":"me@example.com"}"#).unwrap());
+        assert!(!s.support_prompt_shown);
+        let back: Settings =
+            serde_json::from_str(&serde_json::to_string(&Settings { support_prompt_shown: true, ..s }).unwrap())
+                .unwrap();
+        assert!(back.support_prompt_shown && back.apple_id == "me@example.com");
     }
 }

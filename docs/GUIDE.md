@@ -20,8 +20,9 @@ Apple's free-account limits apply to everything below: **3 apps per device, a
 
 ## 1. Get Lodestar
 
-Either download `Lodestar-<version>-arm64.zip` from
-[Releases](https://github.com/asroya/lodestar/releases) and move `Lodestar.app` to
+Either download `Lodestar-arm64.dmg` from
+[Releases](https://github.com/asroya/lodestar/releases/latest) (or from the
+[website](https://asroya.github.io/lodestar/)), open it and drag Lodestar to
 Applications, or build it yourself:
 
 ```bash
@@ -29,8 +30,10 @@ git clone https://github.com/asroya/lodestar.git
 cd lodestar && ./packaging/bundle.sh && open dist/Lodestar.app
 ```
 
-Release downloads aren't notarized. The first time, right-click `Lodestar.app` and
-choose **Open** (or run `xattr -dr com.apple.quarantine /Applications/Lodestar.app`).
+Release downloads aren't notarized, so macOS stops the first launch. On macOS 15 and
+later, open Lodestar once, then go to System Settings › Privacy & Security and choose
+**Open Anyway**. On macOS 13 and 14, right-click `Lodestar.app` and choose **Open**.
+Either way, `xattr -dr com.apple.quarantine /Applications/Lodestar.app` also works.
 
 macOS will ask whether Lodestar may find devices on your local network. Choose
 **Allow**; Apple TV discovery needs it.
@@ -90,7 +93,9 @@ Keep the Mac and the TV on the same Wi-Fi, and not on a guest network.
    Sign, Install*, with the percentage beside it. The first run takes longer
    because it creates your signing certificate.
 
-When it finishes you'll see *"… is installed on …"*.
+When it finishes you'll see *"… is installed on …"*. After your very first install,
+Lodestar shows a short note, once, that it's free to use, with an optional *Buy me a
+coffee* link. Choose **Not now** to carry on; the link stays at the bottom of the sidebar.
 
 ### First launch on iPhone or iPad
 

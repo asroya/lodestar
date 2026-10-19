@@ -4,6 +4,27 @@ All notable changes to Lodestar are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - Unreleased
+
+Full notes: [docs/releases/v1.1.0.md](docs/releases/v1.1.0.md).
+
+### Added
+- A one-time note after your first successful install saying Lodestar is free, with an
+  optional **Buy me a coffee** link. It never appears again, never covers a sign-in or
+  pairing prompt, and the link stays at the bottom of the sidebar. Opening it hands one
+  fixed URL to your browser; Lodestar itself makes no request.
+- A website (`site/`, published to GitHub Pages) with a quick-start guide, screenshots,
+  live versions of the app's controls, a one-click download and a support section whose
+  payment links live in `site/config.js`.
+- Releases now include a disk image, `Lodestar-arm64.dmg`, alongside the zip and a
+  `SHA256SUMS.txt`. `packaging/bundle.sh --dmg` builds it locally.
+- A release workflow that builds and attaches the zip and disk image when a `v*` tag is
+  pushed, and a website workflow that checks the site in a browser before publishing.
+
+### Changed
+- First-launch instructions now describe macOS 15's **Open Anyway** step; right-click
+  › Open only works on macOS 13 and 14.
+
 ## [1.0.0] - 2026-10-15
 
 First public release. Full notes: [docs/releases/v1.0.0.md](docs/releases/v1.0.0.md).

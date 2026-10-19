@@ -1,0 +1,4 @@
+# Shows a "Sponsor" button on the repository page. The link goes to the website's
+# support section, which lists whatever ways to chip in are set up in site/config.js.
+# Add `github: asroya` here too once GitHub Sponsors is enabled for the account.
+custom: ["https://asroya.github.io/lodestar/#support"]

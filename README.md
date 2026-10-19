@@ -2,6 +2,8 @@
 
 **Free, open-source sideloading for iPhone, iPad and Apple TV 4K. A native Rust app for your Mac.**
 
+**[Website](https://asroya.github.io/lodestar/)** · **[Download](https://github.com/asroya/lodestar/releases/latest)** · **[Guide](docs/GUIDE.md)**
+
 [![CI](https://github.com/asroya/lodestar/actions/workflows/ci.yml/badge.svg)](https://github.com/asroya/lodestar/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Platform: macOS](https://img.shields.io/badge/platform-macOS%20·%20Apple%20silicon-lightgrey.svg)
@@ -37,10 +39,12 @@ real hardware yet; please report what you find.
 
 ## Quick start
 
-**Option A: download.** Grab `Lodestar-<version>-arm64.zip` from
-[Releases](https://github.com/asroya/lodestar/releases), unzip, and move
-`Lodestar.app` to Applications. Release builds are not notarized, so on first
-launch right-click the app and choose **Open**, or run:
+**Option A: download.** Grab `Lodestar-arm64.dmg` from
+[Releases](https://github.com/asroya/lodestar/releases/latest), open it and drag
+Lodestar to Applications. (A zip is attached too.) Release builds are not notarized,
+so macOS stops the first launch: on macOS 15 and later, open the app once, then choose
+**Open Anyway** in System Settings › Privacy & Security; on macOS 13 and 14,
+right-click the app and choose **Open**. Or run:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/Lodestar.app
@@ -125,15 +129,36 @@ for how to report a vulnerability.
 ## Development
 
 ```bash
-cargo test                                   # 37 tests, no device or Apple ID needed
+cargo test                                   # 41 tests, no device or Apple ID needed
 cargo clippy --all-targets -- -D warnings
 cargo fmt --check
-./packaging/check.sh                         # all of the above + bundle, signature and launch check
+./packaging/check.sh                         # all of the above + bundle, disk image, signature and launch check
+./packaging/bundle.sh --zip --dmg            # what a release ships: dist/*.zip and dist/Lodestar-arm64.dmg
 ./testapp/build.sh                           # tiny tvOS test app → testapp/build/LodestarHello.tipa
 LODESTAR_MOTION_SLOWMO=10 cargo run          # animations 10× slower, for design review
 ```
 
 How it fits together is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+**Releasing.** Bump `version` in `Cargo.toml`, add `docs/releases/vX.Y.Z.md`, then push a
+`vX.Y.Z` tag. The *Release* workflow builds, verifies and attaches the zip, the disk image
+and checksums.
+
+**Website.** `site/` is plain HTML, CSS and JavaScript with no build step; preview it with
+`python3 -m http.server -d site`. Payment links live in `site/config.js`. The *Website*
+workflow checks it in a browser (`packaging/check-site.mjs`) and publishes it to GitHub
+Pages from `main`.
+
+## Supporting Lodestar
+
+Lodestar is free, and there's no obligation to pay for it. After your first successful
+install it says so once, with an optional **Buy me a coffee** link that stays at the
+bottom of the sidebar. The link opens the
+[website's support section](https://asroya.github.io/lodestar/#support) in your
+browser; Lodestar makes no request of its own. Starring the repository, reporting how
+the 🧪 rows above behave on your hardware, and contributing help just as much.
+
+<p align="center"><img src="docs/images/support-light.jpg" alt="The note saying Lodestar is free, with Buy me a coffee and Not now" width="460"></p>
 
 ## Credits and license
 

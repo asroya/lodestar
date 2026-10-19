@@ -25,6 +25,7 @@ answers to its prompts come back.
 | `ipa.rs` | Reads an IPA's `Info.plist` straight from the zip, without extracting it. |
 | `store.rs` | `settings.json`, `library.json`, Keychain access, formatting helpers. |
 | `app.rs` | Every page and dialog. Holds no business logic beyond view state. |
+| `support.rs` | When the one-time "Lodestar is free" note is due, and the one URL its link opens. |
 | `theme.rs` | Colours, fonts, controls and the motion layer. |
 
 ## An install, step by step

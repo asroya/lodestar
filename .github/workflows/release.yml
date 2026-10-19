@@ -1,0 +1,88 @@
+name: Release
+
+# Builds Lodestar.app from a version tag and attaches the zip and the disk image to
+# that tag's GitHub release (creating the release if it doesn't exist yet).
+#
+#   git tag v1.1.0 && git push origin v1.1.0
+#
+# Run it by hand from the Actions tab to (re)build an existing tag, for example to
+# add a disk image to a release that only has a zip.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build, e.g. v1.1.0'
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and attach
+    runs-on: macos-latest
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      # Older tags predate `bundle.sh --dmg`; package them with this commit's script.
+      - uses: actions/checkout@v4
+        with:
+          path: .release-tools
+          sparse-checkout: packaging/bundle.sh
+          sparse-checkout-cone-mode: false
+      - run: cp .release-tools/packaging/bundle.sh packaging/bundle.sh && rm -rf .release-tools
+
+      - name: Tag matches Cargo.toml
+        run: |
+          version=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          if [ "v$version" != "$TAG" ]; then
+            echo "Tag $TAG doesn't match Cargo.toml version $version" >&2
+            exit 1
+          fi
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Bundle (ad-hoc signed), zip and disk image
+        run: LODESTAR_SIGN_IDENTITY=- ./packaging/bundle.sh --zip --dmg
+
+      - name: Verify the app, the zip and the disk image
+        run: |
+          codesign --verify --deep --strict dist/Lodestar.app
+          hdiutil verify dist/Lodestar-*.dmg
+          mnt=$(mktemp -d)
+          hdiutil attach -nobrowse -readonly -mountpoint "$mnt" dist/Lodestar-*.dmg
+          codesign --verify --deep --strict "$mnt/Lodestar.app"
+          test -L "$mnt/Applications"
+          hdiutil detach "$mnt"
+          if unzip -l dist/Lodestar-*.zip | grep -q '\._'; then
+            echo "found ._* files in the zip" >&2
+            exit 1
+          fi
+
+      - name: Checksums
+        run: cd dist && shasum -a 256 Lodestar-*.zip Lodestar-*.dmg > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - name: Attach to the release
+        run: |
+          notes="docs/releases/$TAG.md"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            if [ -f "$notes" ]; then
+              gh release create "$TAG" --title "Lodestar ${TAG#v}" --notes-file "$notes"
+            else
+              gh release create "$TAG" --title "Lodestar ${TAG#v}" --generate-notes
+            fi
+          fi
+          gh release upload "$TAG" dist/Lodestar-*.zip dist/Lodestar-*.dmg dist/SHA256SUMS.txt --clobber

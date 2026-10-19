@@ -53,7 +53,8 @@ Lodestar does not contain code from Sideloadly or any other closed-source tool.
 **IBM Plex Sans** and **IBM Plex Mono**, Copyright © 2017 IBM Corp., are
 distributed under the SIL Open Font License 1.1. The license text is in
 [`assets/fonts/OFL.txt`](assets/fonts/OFL.txt). The font files are compiled into
-the application.
+the application, and Latin subsets of them (WOFF2, in `site/fonts/` with a copy of the
+license) are served by the website.
 
 ## Trademarks
 

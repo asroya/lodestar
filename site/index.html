@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lodestar</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Free, open-source sideloading for iPhone, iPad and Apple TV 4K. A native Mac app that signs apps with your own Apple ID and installs them.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f5f3ef" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#151413" media="(prefers-color-scheme: dark)">
+<meta property="og:title" content="Lodestar">
+<meta property="og:description" content="Free sideloading for iPhone, iPad and Apple TV, from a native Mac app.">
+<meta property="og:image" content="https://asroya.github.io/lodestar/images/install-dark.jpg">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/IBMPlexSans-SemiBold.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/IBMPlexSans-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="star" viewBox="14 5 36 46">
+    <path d="M32 14.4 Q33.1 31.6 44.4 32 Q33.1 32.4 32 49.6 Q30.9 32.4 19.6 32 Q30.9 31.6 32 14.4 Z" fill="currentColor"/>
+    <circle cx="32" cy="9" r="2.6" fill="var(--accent)"/>
+  </symbol>
+</svg>
+
+<header class="site-head" id="top">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Lodestar, back to top"><svg aria-hidden="true"><use href="#star"/></svg>Lodestar</a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#guide">Quick start</a>
+      <a href="#source">Source</a>
+      <a href="#faq">Questions</a>
+      <a href="#support">Support</a>
+      <a href="https://github.com/asroya/lodestar">GitHub</a>
+    </nav>
+    <a class="btn btn-secondary btn-sm" data-download href="https://github.com/asroya/lodestar/releases/latest">Download</a>
+  </div>
+</header>
+
+<main>
+  <section class="hero wrap" aria-labelledby="hero-title">
+    <span class="pill"><span class="dot" aria-hidden="true"></span><span data-version>v1.0.0</span> · macOS 13+ · Apple silicon</span>
+    <h1 id="hero-title">Free sideloading for iPhone, iPad and Apple TV</h1>
+    <p class="lede">A native Mac app that signs an <b>.ipa</b> with your own Apple ID and installs it on your device. One 21&nbsp;MB binary. No accounts, no analytics, no paid tier.</p>
+    <div class="cta">
+      <a class="btn btn-primary" data-download href="https://github.com/asroya/lodestar/releases/latest">Download for Mac <span class="sub" data-download-meta hidden></span></a>
+      <a class="btn btn-secondary" href="https://github.com/asroya/lodestar">View on GitHub</a>
+    </div>
+    <p class="cta-note">MIT licensed · <a class="link" href="#source">build it yourself</a> · <a class="link" href="https://github.com/asroya/lodestar/archive/refs/heads/main.zip">source .zip</a></p>
+  </section>
+
+  <section class="screens wrap" aria-label="Screens">
+    <div class="tabs" role="tablist" aria-label="Screens">
+      <button class="tab" role="tab" id="tab-install" aria-controls="screen" aria-selected="true" data-src="images/install-dark.jpg" data-alt="Lodestar's Install page in dark mode: drop zone, device list and signing options" data-caption="Install · pick an app, pick a device, press Install">Install</button>
+      <button class="tab" role="tab" id="tab-devices" aria-controls="screen" aria-selected="false" data-src="images/devices-dark.jpg" data-alt="Lodestar's Devices page in dark mode showing an Apple TV 4K on Wi-Fi and pairing steps" data-caption="Devices · USB, Wi-Fi sync and Apple TVs on your network">Devices</button>
+      <button class="tab" role="tab" id="tab-apps" aria-controls="screen" aria-selected="false" data-src="images/my-apps-light.jpg" data-alt="Lodestar's My Apps page in light mode listing two apps with their signature countdowns" data-caption="My Apps · a countdown for every signature, refresh in one click">My Apps</button>
+    </div>
+    <div class="window" id="screen" role="tabpanel" aria-labelledby="tab-install">
+      <img id="screen-img" src="images/install-dark.jpg" width="1100" height="760" alt="Lodestar's Install page in dark mode: drop zone, device list and signing options">
+    </div>
+    <p class="screen-caption label" id="screen-caption">Install · pick an app, pick a device, press Install</p>
+  </section>
+
+  <section class="wrap" aria-labelledby="tiles-title">
+    <div class="tiles-head">
+      <h2 id="tiles-title">The parts you touch, working</h2>
+      <p>These are the app's own controls rebuilt for the web. Try them; nothing leaves this page.</p>
+    </div>
+    <div class="tiles">
+
+      <figure class="tile">
+        <div class="stage" id="drop-stage">
+          <div class="drop" id="drop" role="button" tabindex="0" aria-describedby="drop-cap">
+            <div id="drop-empty"><strong>Drop an .ipa or .tipa file</strong><span>or try the sample</span></div>
+            <div id="drop-full" hidden></div>
+          </div>
+          <span class="sample" id="sample" draggable="true" aria-hidden="true">Stremio.tipa</span>
+        </div>
+        <figcaption><span class="label">App</span><span class="quiet" id="drop-cap">Reads platform, version and minimum OS before you commit. A file you drop here stays in your browser.</span></figcaption>
+      </figure>
+
+      <figure class="tile">
+        <div class="stage">
+          <div class="mini">
+            <div class="label code-label">Two-factor authentication</div>
+            <p class="code-title">Enter the code</p>
+            <div class="quiet" style="font-size:13.5px">Apple sent a six-digit code to your other devices.</div>
+            <div class="code" id="code">
+              <input id="code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" aria-label="Six-digit code (demo)">
+              <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+            </div>
+            <div class="code-status" id="code-status" aria-live="polite">Type any six digits.</div>
+          </div>
+        </div>
+        <figcaption><span class="label">Sign in</span><span class="quiet">Your password goes only to Apple, and to your Keychain if you ask.</span></figcaption>
+      </figure>
+
+      <figure class="tile">
+        <div class="stage">
+          <div class="mini job" id="job">
+            <div class="job-head"><span class="job-title" id="job-title">Stremio to Living Room</span><span class="data" id="job-pct">0%</span></div>
+            <div class="bar" id="job-bar"><i></i></div>
+            <div class="steps" id="job-steps">
+              <span class="label" data-stage="0">Connect</span><span class="sep"></span>
+              <span class="label" data-stage="1">Provision</span><span class="sep"></span>
+              <span class="label" data-stage="2">Sign</span><span class="sep"></span>
+              <span class="label" data-stage="3">Install</span>
+            </div>
+            <div class="job-detail" id="job-detail" aria-live="polite">Ready when you are.</div>
+            <div class="job-actions"><button class="btn btn-primary btn-sm" id="job-run" type="button">Install</button></div>
+          </div>
+        </div>
+        <figcaption><span class="label">Install</span><span class="quiet">Every step named while it happens. The first run also creates your signing certificate.</span></figcaption>
+      </figure>
+
+      <figure class="tile">
+        <div class="stage">
+          <div class="mini">
+            <div class="job-head"><span class="job-title">VLC on iPhone</span><span class="label" id="count-state">Signed</span></div>
+            <div class="count" id="count" aria-live="off">6d 23h 59m</div>
+            <div class="meter"><i id="meter" style="width:100%"></i></div>
+            <div class="row-between">
+              <span class="data" id="count-note">Expires in 7 days</span>
+              <button class="btn btn-secondary btn-sm" id="count-refresh" type="button">Refresh</button>
+            </div>
+          </div>
+        </div>
+        <figcaption><span class="label">My Apps</span><span class="quiet">Free signatures last 7 days. This one runs 10,000 times faster so you can watch it come due.</span></figcaption>
+      </figure>
+
+    </div>
+    <p class="limits data">Apple's free-account limits: 3 apps per device · 7-day signatures · 10 new App IDs per week</p>
+  </section>
+
+  <div class="sections">
+    <section class="section" id="guide" aria-labelledby="guide-title">
+      <div class="wrap">
+        <div class="label">Quick start</div>
+        <div class="body">
+          <h2 id="guide-title">From download to app, in five steps</h2>
+          <p class="lead">Allow about ten minutes the first time and about thirty seconds after that. You need a Mac on macOS 13 or later, an Apple ID (a free one is enough) and the app file for your device.</p>
+          <ol class="steps-list">
+            <li><span class="n">01</span><div>
+              <h3>Download and move to Applications</h3>
+              <p>Open <code>Lodestar-arm64.dmg</code> and drag Lodestar onto the Applications shortcut beside it.</p>
+              <p><a class="btn btn-primary btn-sm" data-download href="https://github.com/asroya/lodestar/releases/latest">Download for Mac</a></p>
+            </div></li>
+            <li><span class="n">02</span><div>
+              <h3>Open it the first time</h3>
+              <p>Release builds aren't notarized by Apple, so macOS stops the first launch. Open Lodestar once, then go to System Settings › Privacy &amp; Security and choose <strong>Open Anyway</strong>. On macOS 13 and 14 you can right-click the app and choose Open instead. Or clear the flag in Terminal:</p>
+              <div class="cmd"><pre id="cmd-xattr">xattr -dr com.apple.quarantine /Applications/Lodestar.app</pre><button class="copy" type="button" data-copy="cmd-xattr">Copy</button></div>
+              <p>When macOS asks whether Lodestar may find devices on your local network, choose Allow. Apple TV discovery needs it.</p>
+            </div></li>
+            <li><span class="n">03</span><div>
+              <h3>Sign in with your Apple ID</h3>
+              <p>Open Apple ID in the sidebar, enter your email and password, then the six-digit code Apple sends to your other devices. Tick Remember me for one-click refreshes; the password is kept in your Mac's Keychain. A separate Apple ID just for sideloading is a sensible choice.</p>
+            </div></li>
+            <li><span class="n">04</span><div>
+              <h3>Connect a device</h3>
+              <p><strong>iPhone or iPad:</strong> plug it in, unlock it and tap Trust. On iOS 16 and later, turn on Developer Mode in Settings › Privacy &amp; Security.</p>
+              <p><strong>Apple TV 4K:</strong> keep it on the same Wi-Fi as your Mac. One already paired with this Mac appears by itself. To pair a new one, open Settings › Remotes and Devices › Remote App and Devices on the TV, then choose Pair in Lodestar's Devices page and type the code.</p>
+            </div></li>
+            <li><span class="n">05</span><div>
+              <h3>Install, then refresh within 7 days</h3>
+              <p>Drop the <code>.ipa</code> (or <code>.tipa</code> for Apple TV) into the Install page, pick the device and press Install. On an iPhone, trust your Apple ID once in Settings › General › VPN &amp; Device Management.</p>
+              <p>Signatures from a free account last 7 days. My Apps shows the countdown; Refresh re-signs an app in one click.</p>
+            </div></li>
+          </ol>
+          <div class="inline-actions">
+            <a class="link" href="https://github.com/asroya/lodestar/blob/main/docs/GUIDE.md">Read the full guide</a>
+            <a class="link" href="https://github.com/asroya/lodestar#troubleshooting">Troubleshooting</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="source" aria-labelledby="source-title">
+      <div class="wrap">
+        <div class="label">Source</div>
+        <div class="body">
+          <h2 id="source-title">Read it, build it, change it</h2>
+          <p>Every line is on GitHub under the MIT licence. Building takes about two minutes and needs Rust 1.95 or later and Xcode's command line tools.</p>
+          <div class="cmd"><pre id="cmd-build">git clone https://github.com/asroya/lodestar.git
+cd lodestar
+./packaging/bundle.sh       <span class="c"># → dist/Lodestar.app</span>
+open dist/Lodestar.app</pre><button class="copy" type="button" data-copy="cmd-build">Copy</button></div>
+          <div class="inline-actions">
+            <a class="btn btn-secondary btn-sm" href="https://github.com/asroya/lodestar">View on GitHub</a>
+            <a class="link" href="https://github.com/asroya/lodestar/archive/refs/heads/main.zip">Download source (.zip)</a>
+            <a class="link" href="https://github.com/asroya/lodestar/releases">All releases</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="privacy" aria-labelledby="privacy-title">
+      <div class="wrap">
+        <div class="label">Privacy</div>
+        <div class="body">
+          <h2 id="privacy-title">No telemetry, no update check, no analytics</h2>
+          <p>Lodestar talks to three kinds of server, and only to do the job you asked for.</p>
+          <ul class="servers">
+            <li><strong>Apple</strong><p>Sign-in, certificates, App IDs and provisioning profiles. Sign-in uses Apple's SRP protocol, so your password is never sent as plain text.</p></li>
+            <li><strong>An anisette server</strong><p>Apple requires device-identity headers on these requests. The default community server sees your IP address and the provisioning exchange, never your password. You can run your own.</p></li>
+            <li><strong>Your devices</strong><p>Over USB or your local network.</p></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section faq" id="faq" aria-labelledby="faq-title">
+      <div class="wrap">
+        <div class="label">Questions</div>
+        <div class="body">
+          <h2 id="faq-title">Questions people ask</h2>
+          <details><summary>Is it really free?</summary><p>Yes. Every feature is free and there is no paid tier, account or trial. If you'd like to support the work, there's a way to buy me a coffee below, with no obligation.</p></details>
+          <details><summary>Why do apps stop working after 7 days?</summary><p>That's Apple's rule for apps signed with a free developer account. Lodestar counts down each app and re-signs it in one click before it expires. A paid Apple developer account extends this, but Lodestar doesn't need one.</p></details>
+          <details><summary>Why does macOS warn me when I open it?</summary><p>Notarization needs a paid Apple Developer ID, and release builds aren't notarized yet. The app is the same code you can read and build from GitHub. Step 02 of the quick start shows how to open it.</p></details>
+          <details><summary>Which devices work?</summary><p>Installing to an iPhone over USB and to an Apple TV 4K already paired with your Mac are verified on hardware. iPad, Wi-Fi sync for iPhones and first-time Apple TV pairing are implemented but not yet verified; the README keeps the current list.</p></details>
+          <details><summary>Does it run on Intel Macs or Windows?</summary><p>Release builds are for Apple silicon. Intel Macs are expected to work if you build from source but haven't been tested. There is no Windows or Linux version.</p></details>
+          <details><summary>Is it affiliated with Apple?</summary><p>No. Lodestar is an independent project. Install only software you're entitled to run, and follow Apple's developer terms.</p></details>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="support" aria-labelledby="support-title">
+      <div class="wrap">
+        <div class="label">Support</div>
+        <div class="body">
+          <h2 id="support-title">Lodestar is free</h2>
+          <p class="lead">Every feature is free, and there's no obligation to pay, now or later.</p>
+          <p>It does take work to build and to keep working as Apple changes things. If you'd like to say thanks, you can buy me a coffee.</p>
+          <div class="give" id="give"></div>
+          <p class="give-empty" id="give-empty" hidden>Payment links are on their way. Until then, the ways below help just as much.</p>
+          <ul class="other-help">
+            <li><span>Star the repository on <a class="link" href="https://github.com/asroya/lodestar">GitHub</a> so others find it.</span></li>
+            <li><span>Tell us what works on your hardware. iPad and first-time Apple TV pairing still need someone to <a class="link" href="https://github.com/asroya/lodestar/issues/new?template=bug_report.md">report back</a>.</span></li>
+            <li><span>Pick up a <a class="link" href="https://github.com/asroya/lodestar/blob/main/CONTRIBUTING.md">first contribution</a>: background refresh and JIT are open.</span></li>
+          </ul>
+          <figure class="support-shot">
+            <img class="light-only" src="images/support-light.jpg" width="1018" height="648" alt="The note in Lodestar that says the app is free, with Buy me a coffee and Not now buttons">
+            <img class="dark-only" src="images/support-dark.jpg" width="1018" height="648" alt="">
+          </figure>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <p>Built by <a class="link" href="https://github.com/asroya">asroya</a>. MIT licence. No cookies, no tracking.</p>
+    <nav aria-label="Footer">
+      <a href="https://github.com/asroya/lodestar">GitHub</a>
+      <a href="https://github.com/asroya/lodestar/releases">Releases</a>
+      <a href="https://github.com/asroya/lodestar/blob/main/docs/GUIDE.md">Guide</a>
+      <a href="https://github.com/asroya/lodestar/blob/main/SECURITY.md">Security</a>
+    </nav>
+    <p class="fine">Lodestar is an independent project, not affiliated with or endorsed by Apple. Apple, iPhone, iPad, Apple TV and macOS are trademarks of Apple Inc.</p>
+  </div>
+</footer>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

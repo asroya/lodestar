@@ -10,6 +10,7 @@ use crate::{
     engine::{AccountState, Cmd, Engine, InstallRequest, Job, Prompt, Stage},
     ipa::{self, IpaInfo},
     store::{self, InstallOptions, Platform},
+    support,
     theme::{self, *},
 };
 
@@ -17,6 +18,8 @@ const RAIL_W: f32 = 212.0;
 const CONTENT_MAX: f32 = 760.0;
 /// Where section content starts: the label column plus its gap.
 const LABEL_COL: f32 = theme::LABEL_W + 8.0;
+/// How long a finished install shows on its own before the one-time support note.
+const SUPPORT_NOTE_DELAY: f64 = 1.2;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Page {
@@ -54,6 +57,11 @@ pub struct LodestarApp {
     /// When the current page appeared (egui clock), for the arrival animation.
     page_epoch: Option<f64>,
     shown_page: Page,
+    support_open: bool,
+    /// The note opened by itself (after the first install), not from the sidebar.
+    support_first: bool,
+    /// When the one-time support note opens (egui clock), once it's due.
+    support_note_at: Option<f64>,
 }
 
 impl LodestarApp {
@@ -77,6 +85,9 @@ impl LodestarApp {
             log_errors_only: false,
             page_epoch: None,
             shown_page: Page::Install,
+            support_open: false,
+            support_first: false,
+            support_note_at: None,
         }
     }
 
@@ -179,6 +190,8 @@ impl eframe::App for LodestarApp {
             });
 
         self.modal(&ctx, &p);
+        self.offer_support(&ctx);
+        self.support_modal(&ctx, &p);
         self.toast(&ctx, &p);
         // Idle: a slow tick keeps expiry countdowns fresh. Running jobs and
         // animations request their own frames.
@@ -287,9 +300,14 @@ impl LodestarApp {
             );
         }
 
-        // Account, pinned to the bottom.
+        // Support link and account, pinned to the bottom.
         let account = self.engine.shared.lock().unwrap().account();
-        ui.add_space((ui.available_height() - 84.0).max(12.0));
+        ui.add_space((ui.available_height() - 122.0).max(12.0));
+        if link(ui, p, "Buy me a coffee", Some(p.ink2)).clicked() {
+            self.support_open = true;
+            self.support_first = false;
+        }
+        ui.add_space(14.0);
         rule(ui, p);
         ui.add_space(12.0);
         ui.label(label(p, "Apple ID"));
@@ -1133,103 +1151,157 @@ impl LodestarApp {
 
         let mut submit = None;
         let mut cancel = false;
-        egui::Modal::new(Id::new("prompt"))
-            .backdrop_color(Color32::from_black_alpha(if ctx.theme() == egui::Theme::Dark { 150 } else { 70 }))
-            .frame(
-                egui::Frame::new()
-                    .fill(p.surface)
-                    .stroke(Stroke::new(1.0, p.line2))
-                    .corner_radius(CornerRadius::same(10))
-                    .shadow(ctx.style_of(ctx.theme()).visuals.window_shadow)
-                    .inner_margin(Margin::same(28)),
-            )
-            .show(ctx, |ui| {
-                let cell = vec2(46.0, 54.0);
-                let gap = 8.0;
-                let total = vec2(cell.x * digits as f32 + gap * (digits - 1) as f32, cell.y);
-                ui.set_width(total.x);
-                ui.label(label(p, eyebrow));
-                ui.add_space(2.0);
-                ui.label(RichText::new(heading).family(semibold()).size(20.0).color(p.ink).extra_letter_spacing(-0.3));
-                ui.label(quiet(p, body_text));
-                ui.add_space(16.0);
+        dialog(ctx, p, "prompt").show(ctx, |ui| {
+            let cell = vec2(46.0, 54.0);
+            let gap = 8.0;
+            let total = vec2(cell.x * digits as f32 + gap * (digits - 1) as f32, cell.y);
+            ui.set_width(total.x);
+            ui.label(label(p, eyebrow));
+            ui.add_space(2.0);
+            ui.label(RichText::new(heading).family(semibold()).size(20.0).color(p.ink).extra_letter_spacing(-0.3));
+            ui.label(quiet(p, body_text));
+            ui.add_space(16.0);
 
-                // Segmented code field: a transparent TextEdit under drawn cells.
-                let (rect, _) = ui.allocate_exact_size(total, Sense::hover());
-                let edit = ui.put(
-                    rect,
-                    egui::TextEdit::singleline(&mut self.code)
-                        .frame(egui::Frame::NONE)
-                        .text_color(Color32::TRANSPARENT)
-                        .char_limit(digits)
-                        .desired_width(total.x),
-                );
-                edit.request_focus();
-                self.code.retain(|c| c.is_ascii_alphanumeric());
-                let chars: Vec<char> = self.code.chars().collect();
-                let blink = (ui.input(|i| i.time) * 2.0) as i64 % 2 == 0;
-                for i in 0..digits {
-                    let r = Rect::from_min_size(rect.min + vec2(i as f32 * (cell.x + gap), 0.0), cell);
-                    let active = i == chars.len();
-                    let focus = theme::tween(ctx, Id::new(("code-cell", i)), active, 0.12);
-                    let filled = theme::tween(ctx, Id::new(("code-fill", i)), chars.get(i).is_some(), 0.14);
-                    let stroke = Stroke::new(1.0 + 0.5 * focus, theme::lerp(p.line2, p.ink, focus));
-                    ui.painter().rect(r, CornerRadius::same(6), p.bg, stroke, StrokeKind::Inside);
-                    if let Some(ch) = chars.get(i) {
-                        // A typed digit settles into place from slightly small.
-                        let size = 24.0 * (0.8 + 0.2 * filled);
-                        text_at(
-                            ui,
-                            r.center(),
-                            Align2::CENTER_CENTER,
-                            &ch.to_string(),
-                            FontId::new(size, mono_medium()),
-                            p.ink.gamma_multiply(filled),
-                        );
-                    } else if active && blink {
-                        ui.painter().vline(
-                            r.center().x,
-                            (r.center().y - 11.0)..=(r.center().y + 11.0),
-                            Stroke::new(1.5, p.accent),
-                        );
-                    }
+            // Segmented code field: a transparent TextEdit under drawn cells.
+            let (rect, _) = ui.allocate_exact_size(total, Sense::hover());
+            let edit = ui.put(
+                rect,
+                egui::TextEdit::singleline(&mut self.code)
+                    .frame(egui::Frame::NONE)
+                    .text_color(Color32::TRANSPARENT)
+                    .char_limit(digits)
+                    .desired_width(total.x),
+            );
+            edit.request_focus();
+            self.code.retain(|c| c.is_ascii_alphanumeric());
+            let chars: Vec<char> = self.code.chars().collect();
+            let blink = (ui.input(|i| i.time) * 2.0) as i64 % 2 == 0;
+            for i in 0..digits {
+                let r = Rect::from_min_size(rect.min + vec2(i as f32 * (cell.x + gap), 0.0), cell);
+                let active = i == chars.len();
+                let focus = theme::tween(ctx, Id::new(("code-cell", i)), active, 0.12);
+                let filled = theme::tween(ctx, Id::new(("code-fill", i)), chars.get(i).is_some(), 0.14);
+                let stroke = Stroke::new(1.0 + 0.5 * focus, theme::lerp(p.line2, p.ink, focus));
+                ui.painter().rect(r, CornerRadius::same(6), p.bg, stroke, StrokeKind::Inside);
+                if let Some(ch) = chars.get(i) {
+                    // A typed digit settles into place from slightly small.
+                    let size = 24.0 * (0.8 + 0.2 * filled);
+                    text_at(
+                        ui,
+                        r.center(),
+                        Align2::CENTER_CENTER,
+                        &ch.to_string(),
+                        FontId::new(size, mono_medium()),
+                        p.ink.gamma_multiply(filled),
+                    );
+                } else if active && blink {
+                    ui.painter().vline(
+                        r.center().x,
+                        (r.center().y - 11.0)..=(r.center().y + 11.0),
+                        Stroke::new(1.5, p.accent),
+                    );
                 }
-                if let Some(e) = &error {
-                    ui.add_space(8.0);
-                    ui.label(quiet(p, e).color(p.bad));
-                }
-                ui.add_space(18.0);
-                let ready = match prompt {
-                    Prompt::Pin { .. } => chars.len() >= 4,
-                    Prompt::TwoFactor { .. } => chars.len() == digits,
-                };
-                if primary_sized(ui, p, "Continue", ready, Some(total.x)).clicked()
-                    || (ready && ui.input(|i| i.key_pressed(egui::Key::Enter)))
-                {
-                    submit = Some(self.code.clone());
-                }
-                ui.add_space(10.0);
-                ui.horizontal(|ui| {
-                    if let Prompt::TwoFactor { .. } = prompt {
-                        if link(ui, p, "Text me instead", Some(p.ink2)).clicked() {
-                            submit = Some("__sms__".into());
-                        }
-                        ui.add_space(14.0);
+            }
+            if let Some(e) = &error {
+                ui.add_space(8.0);
+                ui.label(quiet(p, e).color(p.bad));
+            }
+            ui.add_space(18.0);
+            let ready = match prompt {
+                Prompt::Pin { .. } => chars.len() >= 4,
+                Prompt::TwoFactor { .. } => chars.len() == digits,
+            };
+            if primary_sized(ui, p, "Continue", ready, Some(total.x)).clicked()
+                || (ready && ui.input(|i| i.key_pressed(egui::Key::Enter)))
+            {
+                submit = Some(self.code.clone());
+            }
+            ui.add_space(10.0);
+            ui.horizontal(|ui| {
+                if let Prompt::TwoFactor { .. } = prompt {
+                    if link(ui, p, "Text me instead", Some(p.ink2)).clicked() {
+                        submit = Some("__sms__".into());
                     }
-                    if link(ui, p, "Cancel", Some(p.ink3)).clicked() {
-                        cancel = true;
-                    }
-                });
-                if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                    ui.add_space(14.0);
+                }
+                if link(ui, p, "Cancel", Some(p.ink3)).clicked() {
                     cancel = true;
                 }
             });
+            if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                cancel = true;
+            }
+        });
         if let Some(code) = submit {
             self.code.clear();
             self.engine.answer(Some(code));
         } else if cancel {
             self.code.clear();
             self.engine.answer(None);
+        }
+    }
+
+    /// Arms the one-time note when the first job succeeds. The flag is saved at
+    /// once, so the note can't appear twice even if Lodestar quits before it opens.
+    fn offer_support(&mut self, ctx: &egui::Context) {
+        let now = ctx.input(|i| i.time);
+        let mut s = self.engine.shared.lock().unwrap();
+        if support::prompt_due(s.settings.support_prompt_shown, s.prompt.is_some(), s.job.as_ref()) {
+            s.settings.support_prompt_shown = true;
+            store::save_settings(&s.settings);
+            self.support_note_at = Some(now + SUPPORT_NOTE_DELAY);
+        }
+        let prompt_open = s.prompt.is_some();
+        drop(s);
+        if let Some(at) = self.support_note_at {
+            if now >= at && !prompt_open {
+                self.support_note_at = None;
+                self.support_open = true;
+                self.support_first = true;
+            } else {
+                ctx.request_repaint_after(std::time::Duration::from_secs_f64((at - now).max(0.05)));
+            }
+        }
+    }
+
+    fn support_modal(&mut self, ctx: &egui::Context, p: &Pal) {
+        // A code or PIN prompt always wins; the note waits behind it.
+        if !self.support_open || self.engine.shared.lock().unwrap().prompt.is_some() {
+            return;
+        }
+        let mut close = false;
+        let shown = dialog(ctx, p, "support").show(ctx, |ui| {
+            ui.set_width(372.0);
+            ui.label(label(p, "Free to use"));
+            ui.add_space(2.0);
+            ui.label(
+                RichText::new("Lodestar is free").family(semibold()).size(20.0).color(p.ink).extra_letter_spacing(-0.3),
+            );
+            ui.add_space(4.0);
+            ui.label(body(
+                p,
+                "Every feature is free, and there's no obligation to pay, now or later. It does take work to \
+                 build and to keep working as Apple changes things. If you'd like to say thanks, you can buy \
+                 me a coffee.",
+            ));
+            ui.add_space(20.0);
+            ui.horizontal(|ui| {
+                if primary(ui, p, "Buy me a coffee", true).clicked() {
+                    support::open(ui.ctx());
+                    close = true;
+                }
+                ui.add_space(16.0);
+                if link(ui, p, "Not now", Some(p.ink2)).clicked() {
+                    close = true;
+                }
+            });
+            if self.support_first {
+                ui.add_space(16.0);
+                ui.label(quiet(p, "This note appears once. The link stays in the sidebar.").color(p.ink3));
+            }
+        });
+        if close || shown.should_close() {
+            self.support_open = false;
         }
     }
 
@@ -1286,4 +1358,18 @@ impl LodestarApp {
                     });
             });
     }
+}
+
+/// The shared look of Lodestar's dialogs: a raised surface over a dimmed window.
+fn dialog(ctx: &egui::Context, p: &Pal, id: &str) -> egui::Modal {
+    egui::Modal::new(Id::new(id))
+        .backdrop_color(Color32::from_black_alpha(if ctx.theme() == egui::Theme::Dark { 150 } else { 70 }))
+        .frame(
+            egui::Frame::new()
+                .fill(p.surface)
+                .stroke(Stroke::new(1.0, p.line2))
+                .corner_radius(CornerRadius::same(10))
+                .shadow(ctx.style_of(ctx.theme()).visuals.window_shadow)
+                .inner_margin(Margin::same(28)),
+        )
 }

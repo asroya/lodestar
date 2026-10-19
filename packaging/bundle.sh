@@ -1,13 +1,23 @@
 #!/bin/zsh
 # Builds dist/Lodestar.app for the machine you run it on (release profile).
 #
-#   ./packaging/bundle.sh          build and sign
-#   ./packaging/bundle.sh --zip    also write dist/Lodestar-<version>-<arch>.zip
+#   ./packaging/bundle.sh                build and sign
+#   ./packaging/bundle.sh --zip          also write dist/Lodestar-<version>-<arch>.zip
+#   ./packaging/bundle.sh --dmg          also write dist/Lodestar-<arch>.dmg
+#   ./packaging/bundle.sh --zip --dmg    both (what a release ships)
 #
 # Signing: uses your first Apple Development / Developer ID identity, or the one
 # in LODESTAR_SIGN_IDENTITY (a SHA-1 or name; "-" means ad-hoc, no identity).
 set -euo pipefail
 cd "$(dirname "$0")/.."
+want_zip=0 want_dmg=0
+for arg in "$@"; do
+  case "$arg" in
+    --zip) want_zip=1 ;;
+    --dmg) want_dmg=1 ;;
+    *) echo "unknown option: $arg (expected --zip and/or --dmg)" >&2; exit 2 ;;
+  esac
+done
 source ~/.cargo/env 2>/dev/null || true
 # Rust embeds absolute source paths (panic locations, dependency paths) in the binary.
 # Remap this machine's home folder and the project folder so a distributed build doesn't
@@ -76,9 +86,24 @@ else
 fi
 echo "Built $APP"
 
-if [[ "${1:-}" == "--zip" ]]; then
+if (( want_zip )); then
   ZIP="$PWD/dist/Lodestar-$VERSION-$(uname -m).zip"
   rm -f "$ZIP"
   ditto -c -k --norsrc --noextattr --noqtn --keepParent "$APP" "$ZIP"
   echo "Wrote $ZIP"
+fi
+
+# A disk image people open and drag from: the app beside a shortcut to Applications.
+# The file name has no version so releases/latest/download/Lodestar-arm64.dmg always
+# points at the newest one; the volume name carries the version instead.
+if (( want_dmg )); then
+  DMG="$PWD/dist/Lodestar-$(uname -m).dmg"
+  STAGE="$(mktemp -d)/Lodestar"
+  mkdir -p "$STAGE"
+  ditto --norsrc --noextattr --noqtn "$APP" "$STAGE/Lodestar.app"
+  ln -s /Applications "$STAGE/Applications"
+  rm -f "$DMG"
+  hdiutil create -volname "Lodestar $VERSION" -srcfolder "$STAGE" -fs HFS+ -format UDZO -ov "$DMG" >/dev/null
+  rm -rf "$(dirname "$STAGE")"
+  echo "Wrote $DMG"
 fi

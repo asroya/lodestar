@@ -1,0 +1,64 @@
+name: Website
+
+# Checks site/ in a real browser, then publishes it to GitHub Pages.
+# One-time setup: Settings › Pages › Build and deployment › Source: GitHub Actions.
+
+on:
+  push:
+    branches: [main]
+    paths: ['site/**', 'docs/images/**', 'packaging/check-site.mjs', '.github/workflows/pages.yml']
+  pull_request:
+    paths: ['site/**', 'docs/images/**', 'packaging/check-site.mjs', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check the site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install the browser check
+        run: |
+          npm i --no-save playwright@1.56.1 axe-core@4.10.2
+          npx playwright install --with-deps chromium
+      - name: Serve and check
+        run: |
+          python3 -m http.server 8765 -d site >/dev/null 2>&1 &
+          sleep 1
+          SITE_SHOTS="$RUNNER_TEMP/site-shots" node packaging/check-site.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: site-screenshots
+          path: ${{ runner.temp }}/site-shots
+
+  deploy:
+    name: Publish
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      # site/images is a link to docs/images; the upload follows it.
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

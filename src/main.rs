@@ -6,6 +6,7 @@ mod engine;
 mod ipa;
 mod pipeline;
 mod store;
+mod support;
 mod theme;
 
 use std::{

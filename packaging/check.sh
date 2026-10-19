@@ -24,11 +24,18 @@ cargo clippy --all-targets -- -D warnings
 step "Tests"
 cargo test
 
-step "Bundle (ad-hoc signed)"
-LODESTAR_SIGN_IDENTITY=- ./packaging/bundle.sh --zip
+step "Bundle (ad-hoc signed), zip and disk image"
+LODESTAR_SIGN_IDENTITY=- ./packaging/bundle.sh --zip --dmg
 
 step "Signature verifies"
 codesign --verify --deep --strict dist/Lodestar.app
+
+step "Disk image holds a signed app and an Applications shortcut"
+MNT="$(mktemp -d)"
+hdiutil attach -nobrowse -readonly -mountpoint "$MNT" dist/Lodestar-*.dmg >/dev/null
+codesign --verify --deep --strict "$MNT/Lodestar.app"
+[[ -L "$MNT/Applications" ]] || { echo "no Applications shortcut in the disk image" >&2; hdiutil detach "$MNT" >/dev/null; exit 1; }
+hdiutil detach "$MNT" >/dev/null
 
 step "Release zip has no stray metadata files"
 if unzip -l dist/Lodestar-*.zip | grep -q '\._'; then
