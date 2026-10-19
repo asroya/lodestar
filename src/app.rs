@@ -302,7 +302,7 @@ impl LodestarApp {
 
         // Support link and account, pinned to the bottom.
         let account = self.engine.shared.lock().unwrap().account();
-        ui.add_space((ui.available_height() - 122.0).max(12.0));
+        ui.add_space((ui.available_height() - 130.0).max(12.0));
         if link(ui, p, "Buy me a coffee", Some(p.ink2)).clicked() {
             self.support_open = true;
             self.support_first = false;
