@@ -72,6 +72,9 @@ pub struct Settings {
     /// Optional custom anisette v3 server. Empty = library default.
     pub anisette_url: String,
     pub refresh_warning_days: u32,
+    /// Finished first-run setup. Decides Starfall vs Iris at launch and whether
+    /// Local Network browsing starts straight away.
+    pub onboarded: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -110,7 +113,31 @@ fn write_json<T: Serialize>(name: &str, value: &T) {
 }
 
 pub fn load_settings() -> Settings {
-    with_defaults(read_json("settings.json"))
+    let raw = std::fs::read(data_dir().join("settings.json")).ok();
+    let has_library = data_dir().join("library.json").exists();
+    let (settings, migrated) = migrate(raw.as_deref(), has_library);
+    if migrated {
+        // Record the decision, so it is made once and never revisited.
+        save_settings(&settings);
+    }
+    settings
+}
+
+/// Parses `settings.json` (if any). People who used Lodestar before first-run
+/// setup existed have in effect done it already, so a settings file from that
+/// time (one with no `onboarded` key) with an Apple ID, or any library, counts as
+/// onboarded. A file that has the key is never second-guessed: someone who signs
+/// in during setup and quits before Continue still sees setup next time.
+/// Returns the settings and whether the migration changed them.
+fn migrate(raw: Option<&[u8]>, has_library: bool) -> (Settings, bool) {
+    let value: Option<serde_json::Value> = raw.and_then(|b| serde_json::from_slice(b).ok());
+    let has_key = value.as_ref().and_then(|v| v.get("onboarded")).is_some();
+    let mut s = with_defaults(value.and_then(|v| serde_json::from_value(v).ok()).unwrap_or_default());
+    let legacy = !has_key && (!s.apple_id.is_empty() || has_library);
+    if legacy {
+        s.onboarded = true;
+    }
+    (s, legacy)
 }
 
 /// Fills in values a missing or older settings file doesn't carry.
@@ -143,6 +170,20 @@ pub fn set_keychain_password(email: &str, password: Option<&str>) {
             Some(p) => entry.set_password(p),
             None => entry.delete_credential(),
         };
+    }
+}
+
+/// Writes, reads back and removes a throwaway keychain item, so macOS asks for
+/// Keychain access during setup rather than in the middle of the first install.
+/// Blocks while a macOS dialog is open: call it off the UI thread.
+pub fn keychain_probe() -> Result<(), String> {
+    let entry = keyring::Entry::new(KEYCHAIN_SERVICE, "setup-probe").map_err(|e| e.to_string())?;
+    entry.set_password("ok").map_err(|e| e.to_string())?;
+    let read = entry.get_password().map_err(|e| e.to_string());
+    let _ = entry.delete_credential();
+    match read? {
+        v if v == "ok" => Ok(()),
+        _ => Err("The keychain returned something unexpected".into()),
     }
 }
 
@@ -250,5 +291,25 @@ mod tests {
         assert_eq!(s.refresh_warning_days, 2);
         let custom = with_defaults(serde_json::from_str(r#"{"refresh_warning_days":5}"#).unwrap());
         assert_eq!(custom.refresh_warning_days, 5);
+    }
+
+    #[test]
+    fn existing_users_count_as_onboarded() {
+        let (fresh, changed) = migrate(None, false);
+        assert!(!fresh.onboarded && !changed, "a brand-new install sees setup");
+        let (old, changed) = migrate(Some(br#"{"apple_id":"a@b.c","refresh_warning_days":2}"#), false);
+        assert!(old.onboarded && changed, "an Apple ID from before setup existed");
+        let (lib, _) = migrate(Some(br#"{"apple_id":""}"#), true);
+        assert!(lib.onboarded, "a library means Lodestar was used before");
+        assert_eq!(old.refresh_warning_days, 2, "migration keeps the rest of the file");
+    }
+
+    #[test]
+    fn signing_in_during_setup_does_not_skip_the_rest_of_it() {
+        // Setup saved the Apple ID, then the person quit before Continue.
+        let (s, changed) = migrate(Some(br#"{"apple_id":"a@b.c","remember_password":true,"onboarded":false}"#), false);
+        assert!(!s.onboarded && !changed);
+        let (done, _) = migrate(Some(br#"{"apple_id":"","onboarded":true}"#), false);
+        assert!(done.onboarded);
     }
 }

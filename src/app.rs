@@ -5,7 +5,10 @@ use eframe::egui::{
     StrokeKind, Ui, ViewportCommand, vec2,
 };
 
+mod onboarding;
+
 use crate::{
+    boot::{self, Boot, Reveal},
     device::{Device, DeviceKind},
     engine::{AccountState, Cmd, Engine, InstallRequest, Job, Prompt, Stage},
     ipa::{self, IpaInfo},
@@ -40,8 +43,20 @@ impl Page {
     }
 }
 
+/// What fills the window: a boot animation, first-run screens, or the app.
+enum Phase {
+    /// Before the first frame, when the clock isn't known yet.
+    Launch(boot::Kind),
+    Boot(Boot),
+    Welcome,
+    Setup,
+    App,
+}
+
 pub struct LodestarApp {
     engine: Engine,
+    phase: Phase,
+    setup: onboarding::Setup,
     page: Page,
     ipa: Option<(PathBuf, Result<IpaInfo, String>)>,
     device: Option<String>,
@@ -63,9 +78,13 @@ impl LodestarApp {
         let s = engine.shared.lock().unwrap();
         let email = s.settings.apple_id.clone();
         let remember = s.settings.remember_password || email.is_empty();
+        // Starfall greets a first launch; every launch after that opens with Iris.
+        let kind = if s.settings.onboarded { boot::Kind::Iris } else { boot::Kind::Starfall };
         drop(s);
         Self {
             engine,
+            phase: Phase::Launch(kind),
+            setup: onboarding::Setup::default(),
             page: Page::Install,
             ipa: None,
             device: None,
@@ -114,6 +133,96 @@ impl eframe::App for LodestarApp {
     fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         let p = theme::pal(&ctx);
+        let now = ctx.input(|i| i.time);
+
+        if let Phase::Launch(kind) = self.phase {
+            self.phase = Phase::Boot(Boot::new(kind, now));
+        }
+        // Space, Return and Esc skip the boot. Take them out of this frame's
+        // input before anything below draws, so they skip and do nothing else
+        // (Return would press Get started; Esc would cancel a 2FA prompt).
+        if let Phase::Boot(b) = &mut self.phase {
+            let skip = ctx.input_mut(|i| {
+                [egui::Key::Space, egui::Key::Enter, egui::Key::Escape]
+                    .into_iter()
+                    .fold(false, |any, k| i.consume_key(egui::Modifiers::NONE, k) | any)
+            });
+            if skip {
+                b.skip();
+            }
+        }
+        // A finished boot hands over to what it was revealing.
+        if let Phase::Boot(b) = &self.phase
+            && b.finished(now)
+        {
+            self.phase = match b.kind {
+                boot::Kind::Iris => Phase::App,
+                boot::Kind::Starfall => Phase::Welcome,
+            };
+        }
+
+        // Iris "pushes the camera through" the app; everything else is unscaled.
+        let reveal = match &self.phase {
+            Phase::Boot(b) => b.reveal(now),
+            _ => Reveal::SETTLED,
+        };
+        let c = ctx.content_rect().center();
+        ctx.set_transform_layer(
+            ui.layer_id(),
+            egui::emath::TSTransform::new(c.to_vec2() * (1.0 - reveal.scale), reveal.scale),
+        );
+
+        match &self.phase {
+            Phase::Boot(b) if b.kind == boot::Kind::Starfall => self.welcome(ui, &p, reveal),
+            Phase::Welcome => self.welcome(ui, &p, Reveal::SETTLED),
+            Phase::Setup => self.setup(ui, &p),
+            _ => self.main_ui(ui, &ctx, &p),
+        }
+
+        if let Phase::Boot(b) = &mut self.phase {
+            boot_overlay(&ctx, b, &p, now);
+        }
+
+        // 2FA during setup is answered inline in the Apple ID row.
+        let inline_prompt = matches!(self.phase, Phase::Setup)
+            && matches!(self.engine.shared.lock().unwrap().prompt, Some(Prompt::TwoFactor { .. }));
+        if !inline_prompt {
+            self.modal(&ctx, &p);
+        }
+        self.toast(&ctx, &p);
+        // Idle: a slow tick keeps expiry countdowns fresh. Running jobs and
+        // animations request their own frames.
+        ctx.request_repaint_after(std::time::Duration::from_millis(500));
+    }
+}
+
+/// Paints the boot over everything, swallowing clicks while it covers the
+/// window. A click skips to the end (keys are handled before drawing).
+fn boot_overlay(ctx: &egui::Context, b: &mut Boot, p: &Pal, now: f64) {
+    ctx.request_repaint();
+    if !b.covering(now) {
+        return;
+    }
+    let screen = ctx.content_rect();
+    let clicked = egui::Area::new(Id::new("boot"))
+        .order(egui::Order::Foreground)
+        .fixed_pos(screen.min)
+        .constrain(false)
+        .show(ctx, |ui| {
+            let resp = ui.allocate_rect(screen, Sense::click());
+            b.paint(ui.painter(), screen, p, now);
+            resp.clicked()
+        })
+        .inner;
+    if clicked {
+        b.skip();
+    }
+}
+
+impl LodestarApp {
+    fn main_ui(&mut self, ui: &mut Ui, ctx: &egui::Context, p: &Pal) {
+        let p = *p;
+        let ctx = ctx.clone();
 
         let dropped: Vec<PathBuf> = ctx.input(|i| i.raw.dropped_files.iter().map(|f| f.path().to_path_buf()).collect());
         if let Some(path) = dropped.into_iter().find(|f| {
@@ -177,12 +286,6 @@ impl eframe::App for LodestarApp {
                     ui.add_space(40.0);
                 });
             });
-
-        self.modal(&ctx, &p);
-        self.toast(&ctx, &p);
-        // Idle: a slow tick keeps expiry countdowns fresh. Running jobs and
-        // animations request their own frames.
-        ctx.request_repaint_after(std::time::Duration::from_millis(500));
     }
 }
 
@@ -1041,6 +1144,14 @@ impl LodestarApp {
             ui.add_space(4.0);
             ui.label(quiet(p, "These are Apple's limits. Lodestar itself has no paid features.").color(p.ink3));
         });
+
+        section(ui, p, "Setup", |ui| {
+            ui.label(quiet(p, "Walk through the Apple ID, Keychain and Local Network checks again."));
+            ui.add_space(8.0);
+            if link(ui, p, "Run setup again", None).clicked() {
+                self.open_setup();
+            }
+        });
     }
 }
 
@@ -1154,54 +1265,15 @@ impl LodestarApp {
                 ui.label(quiet(p, body_text));
                 ui.add_space(16.0);
 
-                // Segmented code field: a transparent TextEdit under drawn cells.
-                let (rect, _) = ui.allocate_exact_size(total, Sense::hover());
-                let edit = ui.put(
-                    rect,
-                    egui::TextEdit::singleline(&mut self.code)
-                        .frame(egui::Frame::NONE)
-                        .text_color(Color32::TRANSPARENT)
-                        .char_limit(digits)
-                        .desired_width(total.x),
-                );
-                edit.request_focus();
-                self.code.retain(|c| c.is_ascii_alphanumeric());
-                let chars: Vec<char> = self.code.chars().collect();
-                let blink = (ui.input(|i| i.time) * 2.0) as i64 % 2 == 0;
-                for i in 0..digits {
-                    let r = Rect::from_min_size(rect.min + vec2(i as f32 * (cell.x + gap), 0.0), cell);
-                    let active = i == chars.len();
-                    let focus = theme::tween(ctx, Id::new(("code-cell", i)), active, 0.12);
-                    let filled = theme::tween(ctx, Id::new(("code-fill", i)), chars.get(i).is_some(), 0.14);
-                    let stroke = Stroke::new(1.0 + 0.5 * focus, theme::lerp(p.line2, p.ink, focus));
-                    ui.painter().rect(r, CornerRadius::same(6), p.bg, stroke, StrokeKind::Inside);
-                    if let Some(ch) = chars.get(i) {
-                        // A typed digit settles into place from slightly small.
-                        let size = 24.0 * (0.8 + 0.2 * filled);
-                        text_at(
-                            ui,
-                            r.center(),
-                            Align2::CENTER_CENTER,
-                            &ch.to_string(),
-                            FontId::new(size, mono_medium()),
-                            p.ink.gamma_multiply(filled),
-                        );
-                    } else if active && blink {
-                        ui.painter().vline(
-                            r.center().x,
-                            (r.center().y - 11.0)..=(r.center().y + 11.0),
-                            Stroke::new(1.5, p.accent),
-                        );
-                    }
-                }
+                let filled = code_field(ui, p, &mut self.code, digits, cell);
                 if let Some(e) = &error {
                     ui.add_space(8.0);
                     ui.label(quiet(p, e).color(p.bad));
                 }
                 ui.add_space(18.0);
                 let ready = match prompt {
-                    Prompt::Pin { .. } => chars.len() >= 4,
-                    Prompt::TwoFactor { .. } => chars.len() == digits,
+                    Prompt::Pin { .. } => filled >= 4,
+                    Prompt::TwoFactor { .. } => filled == digits,
                 };
                 if primary_sized(ui, p, "Continue", ready, Some(total.x)).clicked()
                     || (ready && ui.input(|i| i.key_pressed(egui::Key::Enter)))
@@ -1286,4 +1358,48 @@ impl LodestarApp {
                     });
             });
     }
+}
+
+/// Segmented code field: a transparent TextEdit under drawn cells. Keeps
+/// focus, accepts letters and digits, and returns how many are filled.
+fn code_field(ui: &mut Ui, p: &Pal, code: &mut String, digits: usize, cell: egui::Vec2) -> usize {
+    let ctx = ui.ctx().clone();
+    let gap = 8.0;
+    let total = vec2(cell.x * digits as f32 + gap * (digits - 1) as f32, cell.y);
+    let (rect, _) = ui.allocate_exact_size(total, Sense::hover());
+    let edit = ui.put(
+        rect,
+        egui::TextEdit::singleline(code)
+            .frame(egui::Frame::NONE)
+            .text_color(Color32::TRANSPARENT)
+            .char_limit(digits)
+            .desired_width(total.x),
+    );
+    edit.request_focus();
+    code.retain(|c| c.is_ascii_alphanumeric());
+    let chars: Vec<char> = code.chars().collect();
+    let blink = (ui.input(|i| i.time) * 2.0) as i64 % 2 == 0;
+    for i in 0..digits {
+        let r = Rect::from_min_size(rect.min + vec2(i as f32 * (cell.x + gap), 0.0), cell);
+        let active = i == chars.len();
+        let focus = theme::tween(&ctx, Id::new(("code-cell", i)), active, 0.12);
+        let filled = theme::tween(&ctx, Id::new(("code-fill", i)), chars.get(i).is_some(), 0.14);
+        let stroke = Stroke::new(1.0 + 0.5 * focus, theme::lerp(p.line2, p.ink, focus));
+        ui.painter().rect(r, CornerRadius::same(6), p.bg, stroke, StrokeKind::Inside);
+        if let Some(ch) = chars.get(i) {
+            // A typed digit settles into place from slightly small.
+            let size = 24.0 * (0.8 + 0.2 * filled);
+            text_at(
+                ui,
+                r.center(),
+                Align2::CENTER_CENTER,
+                &ch.to_string(),
+                FontId::new(size, mono_medium()),
+                p.ink.gamma_multiply(filled),
+            );
+        } else if active && blink {
+            ui.painter().vline(r.center().x, (r.center().y - 11.0)..=(r.center().y + 11.0), Stroke::new(1.5, p.accent));
+        }
+    }
+    chars.len()
 }
